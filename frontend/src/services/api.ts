@@ -1,5 +1,19 @@
 import axios from 'axios';
-import { AuthResponse, LoginData, RegisterData, User, Employee, CreateEmployeeData } from '../types';
+import {
+  AuthResponse,
+  LoginData,
+  RegisterData,
+  User,
+  Employee,
+  CreateEmployeeData,
+  Attendance,
+  AttendanceStatistics,
+  AttendanceSummary,
+  WorkLog,
+  WorkLogStatistics,
+  CreateWorkLogData,
+  UpdateWorkLogData,
+} from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -40,6 +54,58 @@ export const employeeAPI = {
   update: (id: string, data: Partial<Employee>) =>
     api.put<{ message: string; employee: Employee }>(`/employees/${id}`, data),
   delete: (id: string) => api.delete<{ message: string }>(`/employees/${id}`),
+};
+
+// Attendance API
+export const attendanceAPI = {
+  checkIn: (notes?: string) =>
+    api.post<{ message: string; attendance: Attendance }>('/attendance/check-in', { notes }),
+  checkOut: (notes?: string) =>
+    api.post<{ message: string; attendance: Attendance }>('/attendance/check-out', { notes }),
+  getToday: () => api.get<{ attendance: Attendance | null }>('/attendance/today'),
+  getMyRecords: (params?: { startDate?: string; endDate?: string; limit?: number }) =>
+    api.get<{ attendances: Attendance[]; statistics: AttendanceStatistics }>(
+      '/attendance/my-records',
+      { params }
+    ),
+  getAll: (params?: {
+    startDate?: string;
+    endDate?: string;
+    employeeId?: string;
+    status?: string;
+  }) => api.get<{ attendances: Attendance[] }>('/attendance/all', { params }),
+  getSummary: () => api.get<AttendanceSummary>('/attendance/summary'),
+};
+
+// Work Log API
+export const workLogAPI = {
+  create: (data: CreateWorkLogData) =>
+    api.post<{ message: string; workLog: WorkLog }>('/work-logs', data),
+  getMyLogs: (params?: { startDate?: string; endDate?: string; status?: string; limit?: number }) =>
+    api.get<{ workLogs: WorkLog[]; statistics: WorkLogStatistics }>('/work-logs/my-logs', {
+      params,
+    }),
+  getAll: (params?: {
+    startDate?: string;
+    endDate?: string;
+    employeeId?: string;
+    status?: string;
+    limit?: number;
+  }) => api.get<{ workLogs: WorkLog[] }>('/work-logs/all', { params }),
+  update: (id: string, data: UpdateWorkLogData) =>
+    api.put<{ message: string; workLog: WorkLog }>(`/work-logs/${id}`, data),
+  delete: (id: string) => api.delete<{ message: string }>(`/work-logs/${id}`),
+  getStats: (params?: { startDate?: string; endDate?: string }) =>
+    api.get<{
+      overall: {
+        totalLogs: number;
+        totalHours: number;
+        completedTasks: number;
+        completionRate: number;
+      };
+      employeeStats: Record<string, any>;
+      departmentStats: Record<string, any>;
+    }>('/work-logs/stats', { params }),
 };
 
 export default api;
