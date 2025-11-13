@@ -10,8 +10,12 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // CORS Configuration
+const frontendUrl = process.env.FRONTEND_URL || '*';
+// Remove trailing slash to match exact origin
+const normalizedOrigin = frontendUrl === '*' ? '*' : frontendUrl.replace(/\/$/, '');
+
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || '*',
+  origin: normalizedOrigin,
   credentials: true,
   optionsSuccessStatus: 200
 };
