@@ -2,6 +2,14 @@
 
 Ứng dụng web quản lý nhân viên với phân quyền Admin và Employee, được xây dựng bằng React, TypeScript, Node.js, Express và PostgreSQL.
 
+## 🚀 Deploy Online (Vercel + Supabase)
+
+**Muốn test ngay trên online?** Xem hướng dẫn:
+- 📖 **[Hướng dẫn chi tiết](./DEPLOY_VERCEL_SUPABASE.md)** - Deploy đầy đủ với screenshots
+- ⚡ **[Quick Start](./DEPLOY_QUICK_START.md)** - Deploy trong 10 phút
+
+**Hoặc chạy local:** Xem phần [Cài đặt](#cài-đặt) bên dưới.
+
 ## Tính năng
 
 ### Chung
