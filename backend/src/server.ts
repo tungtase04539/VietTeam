@@ -3,6 +3,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes';
 import employeeRoutes from './routes/employeeRoutes';
+import attendanceRoutes from './routes/attendanceRoutes';
+import workLogRoutes from './routes/workLogRoutes';
 
 dotenv.config();
 
@@ -28,6 +30,8 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/employees', employeeRoutes);
+app.use('/api/attendance', attendanceRoutes);
+app.use('/api/work-logs', workLogRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
