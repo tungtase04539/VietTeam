@@ -30,20 +30,13 @@ export const checkIn = async (req: AuthRequest, res: Response) => {
     }
 
     const now = new Date();
-    const checkInHour = now.getHours();
-    let status: 'PRESENT' | 'LATE' | 'WORK_FROM_HOME' = 'PRESENT';
-
-    // Determine status based on check-in time
-    if (checkInHour >= 9) {
-      status = 'LATE'; // Late if check-in after 9 AM
-    }
 
     const attendance = await prisma.attendance.create({
       data: {
         employeeId,
         date: today,
         checkInTime: now,
-        status,
+        status: 'PRESENT', // Luôn đánh dấu có mặt, chỉ tính theo giờ làm việc
         notes,
       },
       include: {
@@ -183,17 +176,15 @@ export const getMyAttendance = async (req: AuthRequest, res: Response) => {
     // Calculate statistics
     const totalDays = attendances.length;
     const totalHours = attendances.reduce((sum, att) => sum + (att.totalHours || 0), 0);
-    const presentDays = attendances.filter((att) => att.status === 'PRESENT').length;
-    const lateDays = attendances.filter((att) => att.status === 'LATE').length;
+    const averageHoursPerDay = totalDays > 0 ? totalHours / totalDays : 0;
 
     res.json({
       attendances,
       statistics: {
         totalDays,
         totalHours: Math.round(totalHours * 100) / 100,
-        presentDays,
-        lateDays,
-        attendanceRate: totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 0,
+        averageHoursPerDay: Math.round(averageHoursPerDay * 100) / 100,
+        attendanceRate: 100, // Luôn 100% vì chỉ tính giờ, không tính đi muộn
       },
     });
   } catch (error) {
@@ -279,7 +270,6 @@ export const getAttendanceSummary = async (req: AuthRequest, res: Response) => {
     const totalEmployees = await prisma.employee.count();
     const checkedInToday = todayAttendances.filter((att) => att.checkInTime).length;
     const checkedOutToday = todayAttendances.filter((att) => att.checkOutTime).length;
-    const lateToday = todayAttendances.filter((att) => att.status === 'LATE').length;
 
     const totalHoursThisMonth = monthAttendances.reduce(
       (sum, att) => sum + (att.totalHours || 0),
@@ -291,11 +281,10 @@ export const getAttendanceSummary = async (req: AuthRequest, res: Response) => {
     todayAttendances.forEach((att) => {
       const dept = att.employee.department;
       if (!departmentStats[dept]) {
-        departmentStats[dept] = { total: 0, present: 0, late: 0 };
+        departmentStats[dept] = { total: 0, present: 0 };
       }
       departmentStats[dept].total++;
-      if (att.status === 'PRESENT') departmentStats[dept].present++;
-      if (att.status === 'LATE') departmentStats[dept].late++;
+      if (att.checkInTime) departmentStats[dept].present++;
     });
 
     res.json({
@@ -304,10 +293,10 @@ export const getAttendanceSummary = async (req: AuthRequest, res: Response) => {
         totalEmployees,
         checkedIn: checkedInToday,
         checkedOut: checkedOutToday,
-        late: lateToday,
+        late: 0, // Không tính đi muộn nữa
         attendanceRate: totalEmployees > 0 ? Math.round((checkedInToday / totalEmployees) * 100) : 0,
-        attendances: todayAttendances,
       },
+      realTimeAttendance: todayAttendances,
       thisMonth: {
         totalHours: Math.round(totalHoursThisMonth * 100) / 100,
         averageHoursPerDay:
