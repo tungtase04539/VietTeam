@@ -303,9 +303,6 @@ const AdminDashboard: React.FC = () => {
     return Array.from(dailyMap.values()).sort((a, b) => b.date.localeCompare(a.date));
   };
 
-  // Get unique departments for filters
-  const departments = Array.from(new Set(employees.map((e) => e.department)));
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       {/* Header */}
@@ -387,7 +384,7 @@ const AdminDashboard: React.FC = () => {
                   <div>
                     <p className="text-sm text-slate-500 mb-1">Đang làm việc</p>
                     <p className="text-3xl font-light text-slate-900">
-                      {attendanceSummary?.today.checkedInCount || 0}/
+                      {attendanceSummary?.today.checkedIn || 0}/
                       {attendanceSummary?.today.totalEmployees || 0}
                     </p>
                   </div>

@@ -95,12 +95,12 @@ export interface AttendanceSummary {
     checkedOut: number;
     late: number;
     attendanceRate: number;
-    attendances: Attendance[];
   };
   thisMonth: {
     totalHours: number;
     averageHoursPerDay: number;
   };
+  realTimeAttendance: Attendance[];
   departmentStats: Record<string, {
     total: number;
     present: number;

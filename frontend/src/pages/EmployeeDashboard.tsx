@@ -18,7 +18,6 @@ const EmployeeDashboard: React.FC = () => {
   const [todayAttendance, setTodayAttendance] = useState<Attendance | null>(null);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [currentHours, setCurrentHours] = useState<number>(0);
-  const [currentTime, setCurrentTime] = useState(new Date());
 
   // Work logs state
   const [workLogs, setWorkLogs] = useState<WorkLog[]>([]);
@@ -44,7 +43,6 @@ const EmployeeDashboard: React.FC = () => {
         const now = new Date();
         const hours = (now.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
         setCurrentHours(hours);
-        setCurrentTime(now);
       }, 1000);
       return () => clearInterval(interval);
     }
