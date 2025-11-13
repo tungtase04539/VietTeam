@@ -4,6 +4,35 @@ Hướng dẫn sửa các lỗi thường gặp khi deploy lên Vercel.
 
 ---
 
+## ❌ Lỗi 0: "Can't reach database server" khi build
+
+### Triệu chứng:
+```
+Error: P1001: Can't reach database server at `db.xxx.supabase.co:5432`
+Error: Command "npm run vercel-build" exited with 1
+```
+
+### Nguyên nhân:
+- Vercel build time cố chạy `prisma migrate deploy`
+- Build environment không thể kết nối database
+- Migrations không nên chạy trong build phase
+
+### ✅ Giải pháp:
+**Đã được fix trong code mới nhất!**
+
+1. **Pull code mới:**
+```bash
+git pull origin claude/create-new-feature-011CV5a9q8TAmFi3GaGTDU92
+```
+
+2. **Redeploy trong Vercel** - Vercel sẽ tự động detect code mới và build lại
+
+3. **Tạo tables thủ công trong Supabase SQL Editor** (xem Bước 3 bên dưới)
+
+**Lưu ý:** Migrations KHÔNG chạy tự động khi deploy. Bạn phải tạo tables thủ công bằng SQL trong Supabase.
+
+---
+
 ## ❌ Lỗi 1: Frontend Build Error
 
 ### Triệu chứng:
