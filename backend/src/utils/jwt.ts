@@ -7,6 +7,14 @@ export interface TokenPayload {
   userId: string;
   email: string;
   role: string;
+  employeeId?: string;  // ADD THIS
+  employee?: {          // ADD THIS
+    id: string;
+    firstName: string;
+    lastName: string;
+    position: string;
+    department: string;
+  };
 }
 
 export const generateToken = (payload: TokenPayload): string => {
