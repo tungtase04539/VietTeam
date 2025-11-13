@@ -16,6 +16,9 @@ const EmployeeDashboard: React.FC = () => {
 
   // Attendance state
   const [todayAttendance, setTodayAttendance] = useState<Attendance | null>(null);
+  const [allSessions, setAllSessions] = useState<Attendance[]>([]);
+  const [totalHoursToday, setTotalHoursToday] = useState<number>(0);
+  const [sessionsCount, setSessionsCount] = useState<number>(0);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [currentHours, setCurrentHours] = useState<number>(0);
 
@@ -52,6 +55,9 @@ const EmployeeDashboard: React.FC = () => {
     try {
       const response = await attendanceAPI.getToday();
       setTodayAttendance(response.data.attendance);
+      setAllSessions(response.data.allSessions || []);
+      setTotalHoursToday(response.data.totalHoursToday || 0);
+      setSessionsCount(response.data.sessionsCount || 0);
     } catch (error: any) {
       console.error('Error loading attendance:', error);
     }
@@ -85,6 +91,7 @@ const EmployeeDashboard: React.FC = () => {
     try {
       const response = await attendanceAPI.checkIn();
       setTodayAttendance(response.data.attendance);
+      await loadTodayAttendance(); // Reload to get all sessions
       alert('Bắt đầu làm việc thành công!');
     } catch (error: any) {
       alert(error.response?.data?.message || 'Lỗi khi bắt đầu làm việc');
@@ -125,6 +132,7 @@ ${warning.timeSinceLastUpdate ? `• Thời gian không hoạt động: ${warnin
         alert('Kết thúc làm việc thành công!');
       }
 
+      await loadTodayAttendance(); // Reload to get all sessions
       loadAttendanceStats(); // Reload stats
     } catch (error: any) {
       alert(error.response?.data?.message || 'Lỗi khi kết thúc làm việc');
@@ -396,23 +404,46 @@ ${warning.timeSinceLastUpdate ? `• Thời gian không hoạt động: ${warnin
                       </span>
                     </div>
                     <p className="text-slate-700 mb-2">
-                      Tổng thời gian: <span className="font-bold text-emerald-600 text-xl">{formatHours(todayAttendance.totalHours || 0)}</span>
+                      Tổng thời gian: <span className="font-bold text-emerald-600 text-xl">{formatHours(totalHoursToday)}</span>
+                      {sessionsCount > 1 && (
+                        <span className="text-sm text-slate-500 ml-2">({sessionsCount} sessions)</span>
+                      )}
                     </p>
                     <p className="text-sm text-slate-500">
-                      {formatTime(todayAttendance.checkInTime)} - {formatTime(todayAttendance.checkOutTime)}
+                      Session cuối: {formatTime(todayAttendance.checkInTime)} - {formatTime(todayAttendance.checkOutTime)}
                     </p>
+                    <button
+                      onClick={handleCheckIn}
+                      disabled={attendanceLoading}
+                      className="mt-4 px-6 py-2 bg-blue-600 text-white text-sm
+                               font-medium rounded-lg hover:bg-blue-700
+                               transition-all duration-200
+                               disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {attendanceLoading ? 'Đang xử lý...' : '▶️ Bắt đầu session mới'}
+                    </button>
                   </div>
                 ) : (
-                  <button
-                    onClick={handleCheckIn}
-                    disabled={attendanceLoading}
-                    className="px-8 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white
-                             font-semibold text-lg rounded-xl hover:from-emerald-700 hover:to-teal-700
-                             transition-all duration-200 shadow-lg hover:shadow-xl
-                             disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105"
-                  >
-                    {attendanceLoading ? 'Đang xử lý...' : '▶️ Bắt đầu làm việc'}
-                  </button>
+                  <div className="mb-6">
+                    {sessionsCount > 0 && (
+                      <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                        <p className="text-sm text-blue-700">
+                          Tổng thời gian hôm nay: <span className="font-bold">{formatHours(totalHoursToday)}</span>
+                          <span className="ml-2">({sessionsCount} sessions hoàn thành)</span>
+                        </p>
+                      </div>
+                    )}
+                    <button
+                      onClick={handleCheckIn}
+                      disabled={attendanceLoading}
+                      className="px-8 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white
+                               font-semibold text-lg rounded-xl hover:from-emerald-700 hover:to-teal-700
+                               transition-all duration-200 shadow-lg hover:shadow-xl
+                               disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105"
+                    >
+                      {attendanceLoading ? 'Đang xử lý...' : sessionsCount > 0 ? '▶️ Bắt đầu session mới' : '▶️ Bắt đầu làm việc'}
+                    </button>
+                  </div>
                 )}
               </div>
             </div>

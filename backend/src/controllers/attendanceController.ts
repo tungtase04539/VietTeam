@@ -14,19 +14,22 @@ export const checkIn = async (req: AuthRequest, res: Response) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Check if already checked in today
-    const existingAttendance = await prisma.attendance.findFirst({
+    // Kiểm tra xem có session nào đang active (chưa checkout) không
+    const activeSession = await prisma.attendance.findFirst({
       where: {
         employeeId,
         date: {
           gte: today,
           lt: new Date(today.getTime() + 24 * 60 * 60 * 1000),
         },
+        checkOutTime: null, // Chưa check-out
       },
     });
 
-    if (existingAttendance) {
-      return res.status(400).json({ message: 'Bạn đã check-in hôm nay rồi' });
+    if (activeSession) {
+      return res.status(400).json({
+        message: 'Bạn đang có một session làm việc đang hoạt động. Vui lòng kết thúc trước khi bắt đầu session mới.'
+      });
     }
 
     const now = new Date();
@@ -194,7 +197,34 @@ export const getTodayAttendance = async (req: AuthRequest, res: Response) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const attendance = await prisma.attendance.findFirst({
+    // Tìm session đang active (chưa checkout)
+    const activeAttendance = await prisma.attendance.findFirst({
+      where: {
+        employeeId,
+        date: {
+          gte: today,
+          lt: new Date(today.getTime() + 24 * 60 * 60 * 1000),
+        },
+        checkOutTime: null,
+      },
+    });
+
+    // Nếu không có active session, lấy session mới nhất trong ngày
+    const attendance = activeAttendance || await prisma.attendance.findFirst({
+      where: {
+        employeeId,
+        date: {
+          gte: today,
+          lt: new Date(today.getTime() + 24 * 60 * 60 * 1000),
+        },
+      },
+      orderBy: {
+        checkInTime: 'desc',
+      },
+    });
+
+    // Lấy tất cả sessions trong ngày để tính tổng giờ
+    const allTodaySessions = await prisma.attendance.findMany({
       where: {
         employeeId,
         date: {
@@ -204,7 +234,16 @@ export const getTodayAttendance = async (req: AuthRequest, res: Response) => {
       },
     });
 
-    res.json({ attendance });
+    const totalHoursToday = allTodaySessions.reduce((sum, session) => {
+      return sum + (session.totalHours || 0);
+    }, 0);
+
+    res.json({
+      attendance,
+      allSessions: allTodaySessions,
+      totalHoursToday: Math.round(totalHoursToday * 100) / 100,
+      sessionsCount: allTodaySessions.length,
+    });
   } catch (error) {
     console.error('Get today attendance error:', error);
     res.status(500).json({ message: 'Lỗi server' });
@@ -232,16 +271,33 @@ export const getMyAttendance = async (req: AuthRequest, res: Response) => {
     const attendances = await prisma.attendance.findMany({
       where,
       orderBy: { date: 'desc' },
-      take: parseInt(limit as string),
     });
 
+    // Group by date and sum hours (vì có thể có nhiều sessions trong 1 ngày)
+    const dailyMap = new Map<string, { date: string; sessions: any[]; totalHours: number }>();
+
+    attendances.forEach((att) => {
+      const dateKey = att.date.toISOString().split('T')[0];
+      if (!dailyMap.has(dateKey)) {
+        dailyMap.set(dateKey, { date: dateKey, sessions: [], totalHours: 0 });
+      }
+      const entry = dailyMap.get(dateKey)!;
+      entry.sessions.push(att);
+      entry.totalHours += att.totalHours || 0;
+    });
+
+    const dailyRecords = Array.from(dailyMap.values())
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, parseInt(limit as string));
+
     // Calculate statistics
-    const totalDays = attendances.length;
-    const totalHours = attendances.reduce((sum, att) => sum + (att.totalHours || 0), 0);
+    const totalDays = dailyRecords.length;
+    const totalHours = dailyRecords.reduce((sum, day) => sum + day.totalHours, 0);
     const averageHoursPerDay = totalDays > 0 ? totalHours / totalDays : 0;
 
     res.json({
-      attendances,
+      attendances: dailyRecords,
+      allSessions: attendances, // Tất cả sessions
       statistics: {
         totalDays,
         totalHours: Math.round(totalHours * 100) / 100,
