@@ -7,8 +7,8 @@ export interface TokenPayload {
   userId: string;
   email: string;
   role: string;
-  employeeId?: string;  // ADD THIS
-  employee?: {          // ADD THIS
+  employeeId?: string;
+  employee?: {
     id: string;
     firstName: string;
     lastName: string;
