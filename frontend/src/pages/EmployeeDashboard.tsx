@@ -1,26 +1,201 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { attendanceAPI, workLogAPI } from '../services/api';
+import {
+  Attendance,
+  WorkLog,
+  AttendanceStatistics,
+  WorkLogStatistics,
+  CreateWorkLogData,
+  WorkLogStatus,
+} from '../types';
 
 const EmployeeDashboard: React.FC = () => {
   const { user, logout } = useAuth();
   const employee = user?.employee;
 
-  const formatCurrency = (amount?: number) => {
-    if (!amount) return 'N/A';
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND',
-    }).format(amount);
+  // Attendance state
+  const [todayAttendance, setTodayAttendance] = useState<Attendance | null>(null);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [currentHours, setCurrentHours] = useState<number>(0);
+
+  // Work logs state
+  const [workLogs, setWorkLogs] = useState<WorkLog[]>([]);
+  const [workLogStats, setWorkLogStats] = useState<WorkLogStatistics | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [workLogLoading, setWorkLogLoading] = useState(false);
+
+  // Attendance stats
+  const [attendanceStats, setAttendanceStats] = useState<AttendanceStatistics | null>(null);
+
+  // Load today's attendance
+  useEffect(() => {
+    loadTodayAttendance();
+    loadWorkLogs();
+    loadAttendanceStats();
+  }, []);
+
+  // Live hours counter
+  useEffect(() => {
+    if (todayAttendance?.checkInTime && !todayAttendance.checkOutTime) {
+      const interval = setInterval(() => {
+        const checkIn = new Date(todayAttendance.checkInTime!);
+        const now = new Date();
+        const hours = (now.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
+        setCurrentHours(hours);
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [todayAttendance]);
+
+  const loadTodayAttendance = async () => {
+    try {
+      const response = await attendanceAPI.getToday();
+      setTodayAttendance(response.data.attendance);
+    } catch (error: any) {
+      console.error('Error loading attendance:', error);
+    }
   };
 
-  const formatDate = (dateString?: string) => {
+  const loadWorkLogs = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const response = await workLogAPI.getMyLogs({
+        startDate: today,
+        endDate: today,
+      });
+      setWorkLogs(response.data.workLogs);
+      setWorkLogStats(response.data.statistics);
+    } catch (error: any) {
+      console.error('Error loading work logs:', error);
+    }
+  };
+
+  const loadAttendanceStats = async () => {
+    try {
+      const response = await attendanceAPI.getMyRecords();
+      setAttendanceStats(response.data.statistics);
+    } catch (error: any) {
+      console.error('Error loading stats:', error);
+    }
+  };
+
+  const handleCheckIn = async () => {
+    setAttendanceLoading(true);
+    try {
+      const response = await attendanceAPI.checkIn();
+      setTodayAttendance(response.data.attendance);
+      alert('Check-in thành công!');
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Lỗi khi check-in');
+    } finally {
+      setAttendanceLoading(false);
+    }
+  };
+
+  const handleCheckOut = async () => {
+    setAttendanceLoading(true);
+    try {
+      const response = await attendanceAPI.checkOut();
+      setTodayAttendance(response.data.attendance);
+      setCurrentHours(0);
+      alert('Check-out thành công!');
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Lỗi khi check-out');
+    } finally {
+      setAttendanceLoading(false);
+    }
+  };
+
+  const handleAddWorkLog = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setWorkLogLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const data: CreateWorkLogData = {
+      title: formData.get('title') as string,
+      description: formData.get('description') as string,
+      hoursSpent: parseFloat(formData.get('hoursSpent') as string) || undefined,
+      status: (formData.get('status') as WorkLogStatus) || 'TODO',
+    };
+
+    try {
+      await workLogAPI.create(data);
+      setShowAddModal(false);
+      loadWorkLogs();
+      alert('Đã thêm công việc!');
+      e.currentTarget.reset();
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Lỗi khi thêm công việc');
+    } finally {
+      setWorkLogLoading(false);
+    }
+  };
+
+  const handleUpdateWorkLogStatus = async (id: string, status: WorkLogStatus) => {
+    try {
+      await workLogAPI.update(id, { status });
+      loadWorkLogs();
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Lỗi khi cập nhật');
+    }
+  };
+
+  const handleDeleteWorkLog = async (id: string) => {
+    if (!confirm('Xóa công việc này?')) return;
+    try {
+      await workLogAPI.delete(id);
+      loadWorkLogs();
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Lỗi khi xóa');
+    }
+  };
+
+  const formatTime = (dateString?: string) => {
     if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('vi-VN');
+    return new Date(dateString).toLocaleTimeString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const formatHours = (hours: number) => {
+    const h = Math.floor(hours);
+    const m = Math.floor((hours - h) * 60);
+    return `${h}h ${m}m`;
+  };
+
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      PRESENT: 'bg-green-100 text-green-800',
+      LATE: 'bg-yellow-100 text-yellow-800',
+      ABSENT: 'bg-red-100 text-red-800',
+      WORK_FROM_HOME: 'bg-purple-100 text-purple-800',
+      TODO: 'bg-gray-100 text-gray-800',
+      IN_PROGRESS: 'bg-blue-100 text-blue-800',
+      COMPLETED: 'bg-green-100 text-green-800',
+      BLOCKED: 'bg-red-100 text-red-800',
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const getStatusText = (status: string) => {
+    const texts: Record<string, string> = {
+      PRESENT: 'Đúng giờ',
+      LATE: 'Đi muộn',
+      ABSENT: 'Vắng',
+      WORK_FROM_HOME: 'Làm từ xa',
+      TODO: 'Chưa làm',
+      IN_PROGRESS: 'Đang làm',
+      COMPLETED: 'Hoàn thành',
+      BLOCKED: 'Bị chặn',
+    };
+    return texts[status] || status;
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50 to-teal-50">
-      {/* Header - Modern & Minimal */}
+      {/* Header */}
       <header className="bg-white/80 backdrop-blur-md shadow-sm border-b border-slate-200/50 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
@@ -28,7 +203,7 @@ const EmployeeDashboard: React.FC = () => {
               <h1 className="text-2xl font-light text-slate-900">
                 Dashboard <span className="font-medium text-emerald-600">Nhân Viên</span>
               </h1>
-              <p className="text-sm text-slate-500 mt-1">Thông tin cá nhân của bạn</p>
+              <p className="text-sm text-slate-500 mt-1">Chấm công & Theo dõi công việc</p>
             </div>
             <div className="flex items-center gap-4">
               <div className="text-right hidden sm:block">
@@ -50,137 +225,347 @@ const EmployeeDashboard: React.FC = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-5xl mx-auto px-6 lg:px-8 py-8">
-        {/* Welcome Card */}
+      <main className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
+        {/* Check-in/out Section */}
         <div className="mb-8 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl p-8 text-white shadow-lg">
-          <h2 className="text-3xl font-light mb-2">
-            Xin chào, {employee?.firstName}!
-          </h2>
-          <p className="text-emerald-50">Chúc bạn một ngày làm việc hiệu quả</p>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div>
+              <h2 className="text-3xl font-light mb-2">Xin chào, {employee?.firstName}!</h2>
+              <p className="text-emerald-50">
+                {new Date().toLocaleDateString('vi-VN', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+              </p>
+              {todayAttendance && (
+                <div className="mt-4 space-y-1">
+                  <p className="text-sm text-emerald-100">
+                    Check-in: {formatTime(todayAttendance.checkInTime)}
+                  </p>
+                  {todayAttendance.checkOutTime && (
+                    <p className="text-sm text-emerald-100">
+                      Check-out: {formatTime(todayAttendance.checkOutTime)}
+                    </p>
+                  )}
+                  {todayAttendance.checkInTime && !todayAttendance.checkOutTime && (
+                    <p className="text-lg font-medium text-white mt-2">
+                      ⏱️ Đang làm: {formatHours(currentHours)}
+                    </p>
+                  )}
+                  {todayAttendance.totalHours && (
+                    <p className="text-lg font-medium text-white mt-2">
+                      ✅ Tổng giờ hôm nay: {formatHours(todayAttendance.totalHours)}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3">
+              {!todayAttendance?.checkInTime ? (
+                <button
+                  onClick={handleCheckIn}
+                  disabled={attendanceLoading}
+                  className="px-6 py-3 bg-white text-emerald-600 font-medium rounded-xl
+                           hover:bg-emerald-50 transition-all duration-200 shadow-lg
+                           disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {attendanceLoading ? 'Đang xử lý...' : '🟢 Check-in'}
+                </button>
+              ) : !todayAttendance.checkOutTime ? (
+                <button
+                  onClick={handleCheckOut}
+                  disabled={attendanceLoading}
+                  className="px-6 py-3 bg-white text-red-600 font-medium rounded-xl
+                           hover:bg-red-50 transition-all duration-200 shadow-lg
+                           disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {attendanceLoading ? 'Đang xử lý...' : '🔴 Check-out'}
+                </button>
+              ) : (
+                <div className="px-6 py-3 bg-white/20 backdrop-blur-sm text-white font-medium rounded-xl">
+                  ✅ Đã check-out hôm nay
+                </div>
+              )}
+            </div>
+          </div>
+
+          {todayAttendance && (
+            <div className="mt-6 pt-6 border-t border-emerald-400/30">
+              <span
+                className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
+                  todayAttendance.status
+                )}`}
+              >
+                {getStatusText(todayAttendance.status)}
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Info Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 border border-slate-200/50 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 border border-slate-200/50 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-500 mb-1">Giờ làm tháng này</p>
+                <p className="text-3xl font-light text-slate-900">
+                  {attendanceStats?.totalHours ? formatHours(attendanceStats.totalHours) : '0h 0m'}
+                </p>
+              </div>
+              <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
-              </div>
-              <h3 className="font-medium text-slate-900">Chức vụ & Phòng ban</h3>
-            </div>
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs text-slate-500 mb-1">Chức vụ</p>
-                <p className="text-lg text-slate-900 font-medium">{employee?.position}</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 mb-1">Phòng ban</p>
-                <p className="text-lg text-slate-900 font-medium">{employee?.department}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 border border-slate-200/50 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 border border-slate-200/50 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-500 mb-1">Công việc hoàn thành</p>
+                <p className="text-3xl font-light text-slate-900">
+                  {workLogStats?.completedTasks || 0}
+                </p>
+              </div>
+              <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
+                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
               </div>
-              <h3 className="font-medium text-slate-900">Thu nhập & Ngày vào làm</h3>
             </div>
-            <div className="space-y-3">
+          </div>
+
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 border border-slate-200/50 shadow-sm">
+            <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-slate-500 mb-1">Lương</p>
-                <p className="text-lg text-emerald-600 font-semibold">
-                  {formatCurrency(employee?.salary)}
+                <p className="text-sm text-slate-500 mb-1">Tỷ lệ hoàn thành</p>
+                <p className="text-3xl font-light text-slate-900">
+                  {workLogStats?.completionRate
+                    ? `${Math.round(workLogStats.completionRate)}%`
+                    : '0%'}
                 </p>
               </div>
-              <div>
-                <p className="text-xs text-slate-500 mb-1">Ngày vào làm</p>
-                <p className="text-lg text-slate-900 font-medium">
-                  {formatDate(employee?.hireDate)}
-                </p>
+              <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center">
+                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                  />
+                </svg>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Personal Info Card */}
+        {/* Work Logs Section */}
         <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-slate-200/50 shadow-sm overflow-hidden">
-          <div className="px-6 py-5 border-b border-slate-200/50">
-            <h2 className="text-lg font-medium text-slate-900">Thông tin cá nhân</h2>
-            <p className="text-sm text-slate-500 mt-1">Thông tin chi tiết về hồ sơ của bạn</p>
+          <div className="px-6 py-5 border-b border-slate-200/50 flex justify-between items-center">
+            <div>
+              <h2 className="text-lg font-medium text-slate-900">Công việc hôm nay</h2>
+              <p className="text-sm text-slate-500 mt-1">Quản lý các task đang thực hiện</p>
+            </div>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="px-4 py-2 bg-emerald-600 text-white font-medium rounded-lg
+                       hover:bg-emerald-700 transition-all duration-200 shadow-sm"
+            >
+              + Thêm công việc
+            </button>
           </div>
 
           <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
-                  Họ và tên
-                </label>
-                <p className="text-base text-slate-900 font-medium">
-                  {employee?.firstName} {employee?.lastName}
-                </p>
+            {workLogs.length === 0 ? (
+              <div className="text-center py-12">
+                <svg
+                  className="w-16 h-16 text-slate-300 mx-auto mb-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                  />
+                </svg>
+                <p className="text-slate-500">Chưa có công việc nào hôm nay</p>
               </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
-                  Email
-                </label>
-                <p className="text-base text-slate-900 font-medium">{user?.email}</p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
-                  Số điện thoại
-                </label>
-                <p className="text-base text-slate-900 font-medium">
-                  {employee?.phone || 'Chưa cập nhật'}
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
-                  Địa chỉ
-                </label>
-                <p className="text-base text-slate-900 font-medium">
-                  {employee?.address || 'Chưa cập nhật'}
-                </p>
-              </div>
-            </div>
-
-            {/* Info Notice */}
-            <div className="mt-8 pt-6 border-t border-slate-200">
-              <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-4">
-                <div className="flex items-start gap-3">
-                  <svg
-                    className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
+            ) : (
+              <div className="space-y-4">
+                {workLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow"
                   >
-                    <path
-                      fillRule="evenodd"
-                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  <div>
-                    <p className="text-sm font-medium text-blue-900 mb-1">
-                      Cần cập nhật thông tin?
-                    </p>
-                    <p className="text-sm text-blue-700">
-                      Vui lòng liên hệ với bộ phận Nhân sự hoặc Admin để cập nhật thông tin cá nhân của bạn.
-                    </p>
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1">
+                        <h3 className="font-medium text-slate-900 mb-1">{log.title}</h3>
+                        {log.description && (
+                          <p className="text-sm text-slate-600">{log.description}</p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleDeleteWorkLog(log.id)}
+                        className="ml-4 text-red-500 hover:text-red-700"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(log.status)}`}>
+                          {getStatusText(log.status)}
+                        </span>
+                        {log.hoursSpent && (
+                          <span className="text-sm text-slate-500">{formatHours(log.hoursSpent)}</span>
+                        )}
+                      </div>
+
+                      <div className="flex gap-2">
+                        {log.status !== 'COMPLETED' && (
+                          <button
+                            onClick={() =>
+                              handleUpdateWorkLogStatus(
+                                log.id,
+                                log.status === 'TODO' ? 'IN_PROGRESS' : 'COMPLETED'
+                              )
+                            }
+                            className="text-sm px-3 py-1 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
+                          >
+                            {log.status === 'TODO' ? 'Bắt đầu' : 'Hoàn thành'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
-            </div>
+            )}
           </div>
         </div>
       </main>
+
+      {/* Add Work Log Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-5 border-b border-slate-200 flex justify-between items-center">
+              <h3 className="text-lg font-medium text-slate-900">Thêm công việc mới</h3>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleAddWorkLog} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Tiêu đề *
+                </label>
+                <input
+                  type="text"
+                  name="title"
+                  required
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  placeholder="Tên công việc"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Mô tả
+                </label>
+                <textarea
+                  name="description"
+                  rows={3}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  placeholder="Chi tiết công việc..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Số giờ dự kiến
+                </label>
+                <input
+                  type="number"
+                  name="hoursSpent"
+                  step="0.5"
+                  min="0"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  placeholder="VD: 2.5"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Trạng thái
+                </label>
+                <select
+                  name="status"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                >
+                  <option value="TODO">Chưa làm</option>
+                  <option value="IN_PROGRESS">Đang làm</option>
+                  <option value="COMPLETED">Hoàn thành</option>
+                  <option value="BLOCKED">Bị chặn</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={workLogLoading}
+                  className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                >
+                  {workLogLoading ? 'Đang thêm...' : 'Thêm'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
