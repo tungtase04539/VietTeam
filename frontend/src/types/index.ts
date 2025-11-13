@@ -44,3 +44,16 @@ export interface RegisterData extends LoginData {
   department: string;
   salary?: number;
 }
+
+export interface CreateEmployeeData {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  address?: string;
+  position: string;
+  department: string;
+  salary?: number;
+  role?: 'ADMIN' | 'EMPLOYEE';
+}

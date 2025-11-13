@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { employeeAPI } from '../services/api';
-import { Employee } from '../types';
+import { Employee, CreateEmployeeData } from '../types';
 
 const AdminDashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -10,6 +10,19 @@ const AdminDashboard: React.FC = () => {
   const [error, setError] = useState('');
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newEmployee, setNewEmployee] = useState<CreateEmployeeData>({
+    email: '',
+    password: '',
+    firstName: '',
+    lastName: '',
+    phone: '',
+    address: '',
+    position: '',
+    department: '',
+    salary: undefined,
+    role: 'EMPLOYEE',
+  });
 
   useEffect(() => {
     fetchEmployees();
@@ -24,6 +37,30 @@ const AdminDashboard: React.FC = () => {
       setError(err.response?.data?.message || 'Không thể tải danh sách nhân viên');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAddEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const response = await employeeAPI.create(newEmployee);
+      setEmployees([response.data.employee, ...employees]);
+      setShowAddModal(false);
+      setNewEmployee({
+        email: '',
+        password: '',
+        firstName: '',
+        lastName: '',
+        phone: '',
+        address: '',
+        position: '',
+        department: '',
+        salary: undefined,
+        role: 'EMPLOYEE',
+      });
+      alert('Thêm nhân viên thành công');
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Không thể thêm nhân viên');
     }
   };
 
@@ -83,124 +120,159 @@ const AdminDashboard: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Dashboard Admin
-          </h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">
-              Xin chào, {user?.employee?.firstName} {user?.employee?.lastName}
-            </span>
-            <button
-              onClick={logout}
-              className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
-            >
-              Đăng xuất
-            </button>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      {/* Header - Modern & Minimal */}
+      <header className="bg-white/80 backdrop-blur-md shadow-sm border-b border-slate-200/50 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-light text-slate-900">
+                Dashboard <span className="font-medium text-indigo-600">Admin</span>
+              </h1>
+              <p className="text-sm text-slate-500 mt-1">Quản lý nhân viên và hệ thống</p>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-medium text-slate-700">
+                  {user?.employee?.firstName} {user?.employee?.lastName}
+                </p>
+                <p className="text-xs text-slate-500">{user?.email}</p>
+              </div>
+              <button
+                onClick={logout}
+                className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900
+                         border border-slate-300 rounded-lg hover:bg-slate-50 transition-all duration-200"
+              >
+                Đăng xuất
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <div className="mb-6 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
             {error}
           </div>
         )}
 
         {loading ? (
-          <div className="text-center py-8">
-            <p className="text-gray-600">Đang tải...</p>
+          <div className="flex items-center justify-center py-16">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-10 h-10 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+              <p className="text-slate-500">Đang tải...</p>
+            </div>
           </div>
         ) : (
           <>
-            <div className="bg-white shadow rounded-lg overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-800">
-                  Danh sách nhân viên ({employees.length})
-                </h2>
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 border border-slate-200/50 shadow-sm hover:shadow-md transition-shadow">
+                <p className="text-sm text-slate-500 mb-1">Tổng nhân viên</p>
+                <p className="text-3xl font-light text-slate-900">{employees.length}</p>
+              </div>
+              <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 border border-slate-200/50 shadow-sm hover:shadow-md transition-shadow">
+                <p className="text-sm text-slate-500 mb-1">Quản trị viên</p>
+                <p className="text-3xl font-light text-slate-900">
+                  {employees.filter((e) => e.user?.role === 'ADMIN').length}
+                </p>
+              </div>
+              <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 border border-slate-200/50 shadow-sm hover:shadow-md transition-shadow">
+                <p className="text-sm text-slate-500 mb-1">Nhân viên</p>
+                <p className="text-3xl font-light text-slate-900">
+                  {employees.filter((e) => e.user?.role === 'EMPLOYEE').length}
+                </p>
+              </div>
+            </div>
+
+            {/* Employee List Card */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-slate-200/50 shadow-sm overflow-hidden">
+              <div className="px-6 py-5 border-b border-slate-200/50 flex justify-between items-center">
+                <div>
+                  <h2 className="text-lg font-medium text-slate-900">Danh sách nhân viên</h2>
+                  <p className="text-sm text-slate-500 mt-1">{employees.length} nhân viên</p>
+                </div>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700
+                           transition-all duration-200 text-sm font-medium shadow-sm hover:shadow-md"
+                >
+                  + Thêm nhân viên
+                </button>
               </div>
 
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-slate-200/50">
+                  <thead className="bg-slate-50/50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                         Họ tên
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                         Email
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                         Chức vụ
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                         Phòng ban
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                         Lương
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                         Role
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
                         Hành động
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white/50 divide-y divide-slate-200/50">
                     {employees.map((employee) => (
-                      <tr key={employee.id}>
+                      <tr key={employee.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-sm font-medium text-slate-900">
                             {employee.firstName} {employee.lastName}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {employee.user?.email}
-                          </div>
+                          <div className="text-sm text-slate-600">{employee.user?.email}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {employee.position}
-                          </div>
+                          <div className="text-sm text-slate-600">{employee.position}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {employee.department}
-                          </div>
+                          <div className="text-sm text-slate-600">{employee.department}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
+                          <div className="text-sm text-slate-900 font-medium">
                             {formatCurrency(employee.salary)}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            className={`px-2.5 py-1 inline-flex text-xs font-medium rounded-full ${
                               employee.user?.role === 'ADMIN'
-                                ? 'bg-purple-100 text-purple-800'
-                                : 'bg-green-100 text-green-800'
+                                ? 'bg-indigo-100 text-indigo-700'
+                                : 'bg-emerald-100 text-emerald-700'
                             }`}
                           >
                             {employee.user?.role}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <button
                             onClick={() => handleEdit(employee)}
-                            className="text-indigo-600 hover:text-indigo-900 mr-4"
+                            className="text-indigo-600 hover:text-indigo-900 mr-4 transition-colors"
                           >
                             Sửa
                           </button>
                           <button
                             onClick={() => handleDelete(employee.id)}
-                            className="text-red-600 hover:text-red-900"
+                            className="text-red-600 hover:text-red-900 transition-colors"
                           >
                             Xóa
                           </button>
@@ -215,150 +287,273 @@ const AdminDashboard: React.FC = () => {
         )}
       </main>
 
+      {/* Add Employee Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white px-6 py-5 border-b border-slate-200/50 rounded-t-2xl">
+              <h3 className="text-xl font-medium text-slate-900">Thêm nhân viên mới</h3>
+              <p className="text-sm text-slate-500 mt-1">Điền thông tin nhân viên mới vào form bên dưới</p>
+            </div>
+
+            <form onSubmit={handleAddEmployee} className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Họ <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newEmployee.firstName}
+                    onChange={(e) => setNewEmployee({ ...newEmployee, firstName: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    placeholder="Nguyễn"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Tên <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newEmployee.lastName}
+                    onChange={(e) => setNewEmployee({ ...newEmployee, lastName: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    placeholder="Văn A"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Email <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={newEmployee.email}
+                    onChange={(e) => setNewEmployee({ ...newEmployee, email: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    placeholder="email@example.com"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Mật khẩu <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={newEmployee.password}
+                    onChange={(e) => setNewEmployee({ ...newEmployee, password: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    placeholder="••••••••"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Chức vụ <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newEmployee.position}
+                    onChange={(e) => setNewEmployee({ ...newEmployee, position: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    placeholder="Developer"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Phòng ban <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newEmployee.department}
+                    onChange={(e) => setNewEmployee({ ...newEmployee, department: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    placeholder="IT"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Lương</label>
+                  <input
+                    type="number"
+                    value={newEmployee.salary || ''}
+                    onChange={(e) =>
+                      setNewEmployee({ ...newEmployee, salary: parseFloat(e.target.value) || undefined })
+                    }
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    placeholder="10000000"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Role <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={newEmployee.role}
+                    onChange={(e) =>
+                      setNewEmployee({ ...newEmployee, role: e.target.value as 'ADMIN' | 'EMPLOYEE' })
+                    }
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                  >
+                    <option value="EMPLOYEE">EMPLOYEE</option>
+                    <option value="ADMIN">ADMIN</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Số điện thoại</label>
+                  <input
+                    type="text"
+                    value={newEmployee.phone}
+                    onChange={(e) => setNewEmployee({ ...newEmployee, phone: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    placeholder="0123456789"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Địa chỉ</label>
+                  <input
+                    type="text"
+                    value={newEmployee.address}
+                    onChange={(e) => setNewEmployee({ ...newEmployee, address: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    placeholder="123 Đường ABC, Quận XYZ"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="px-5 py-2.5 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-all duration-200 font-medium"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 font-medium shadow-sm hover:shadow-md"
+                >
+                  Thêm nhân viên
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Edit Modal */}
       {showEditModal && editingEmployee && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">
-              Chỉnh sửa nhân viên
-            </h3>
-            <form onSubmit={handleUpdate} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white px-6 py-5 border-b border-slate-200/50 rounded-t-2xl">
+              <h3 className="text-xl font-medium text-slate-900">Chỉnh sửa nhân viên</h3>
+              <p className="text-sm text-slate-500 mt-1">Cập nhật thông tin nhân viên</p>
+            </div>
+
+            <form onSubmit={handleUpdate} className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Họ
-                  </label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Họ</label>
                   <input
                     type="text"
                     value={editingEmployee.firstName}
                     onChange={(e) =>
-                      setEditingEmployee({
-                        ...editingEmployee,
-                        firstName: e.target.value,
-                      })
+                      setEditingEmployee({ ...editingEmployee, firstName: e.target.value })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tên
-                  </label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Tên</label>
                   <input
                     type="text"
                     value={editingEmployee.lastName}
                     onChange={(e) =>
+                      setEditingEmployee({ ...editingEmployee, lastName: e.target.value })
+                    }
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Chức vụ</label>
+                  <input
+                    type="text"
+                    value={editingEmployee.position}
+                    onChange={(e) =>
+                      setEditingEmployee({ ...editingEmployee, position: e.target.value })
+                    }
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Phòng ban</label>
+                  <input
+                    type="text"
+                    value={editingEmployee.department}
+                    onChange={(e) =>
+                      setEditingEmployee({ ...editingEmployee, department: e.target.value })
+                    }
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Lương</label>
+                  <input
+                    type="number"
+                    value={editingEmployee.salary || ''}
+                    onChange={(e) =>
                       setEditingEmployee({
                         ...editingEmployee,
-                        lastName: e.target.value,
+                        salary: parseFloat(e.target.value),
                       })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Số điện thoại</label>
+                  <input
+                    type="text"
+                    value={editingEmployee.phone || ''}
+                    onChange={(e) =>
+                      setEditingEmployee({ ...editingEmployee, phone: e.target.value })
+                    }
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Địa chỉ</label>
+                  <input
+                    type="text"
+                    value={editingEmployee.address || ''}
+                    onChange={(e) =>
+                      setEditingEmployee({ ...editingEmployee, address: e.target.value })
+                    }
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Chức vụ
-                </label>
-                <input
-                  type="text"
-                  value={editingEmployee.position}
-                  onChange={(e) =>
-                    setEditingEmployee({
-                      ...editingEmployee,
-                      position: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Phòng ban
-                </label>
-                <input
-                  type="text"
-                  value={editingEmployee.department}
-                  onChange={(e) =>
-                    setEditingEmployee({
-                      ...editingEmployee,
-                      department: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Lương
-                </label>
-                <input
-                  type="number"
-                  value={editingEmployee.salary || ''}
-                  onChange={(e) =>
-                    setEditingEmployee({
-                      ...editingEmployee,
-                      salary: parseFloat(e.target.value),
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Số điện thoại
-                </label>
-                <input
-                  type="text"
-                  value={editingEmployee.phone || ''}
-                  onChange={(e) =>
-                    setEditingEmployee({
-                      ...editingEmployee,
-                      phone: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Địa chỉ
-                </label>
-                <input
-                  type="text"
-                  value={editingEmployee.address || ''}
-                  onChange={(e) =>
-                    setEditingEmployee({
-                      ...editingEmployee,
-                      address: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 mt-6">
+              <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => {
                     setShowEditModal(false);
                     setEditingEmployee(null);
                   }}
-                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+                  className="px-5 py-2.5 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-all duration-200 font-medium"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 font-medium shadow-sm hover:shadow-md"
                 >
-                  Lưu
+                  Lưu thay đổi
                 </button>
               </div>
             </form>

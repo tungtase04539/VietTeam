@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { AuthResponse, LoginData, RegisterData, User, Employee } from '../types';
+import { AuthResponse, LoginData, RegisterData, User, Employee, CreateEmployeeData } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -33,6 +33,8 @@ export const authAPI = {
 
 // Employee API
 export const employeeAPI = {
+  create: (data: CreateEmployeeData) =>
+    api.post<{ message: string; employee: Employee }>('/employees', data),
   getAll: () => api.get<Employee[]>('/employees'),
   getById: (id: string) => api.get<Employee>(`/employees/${id}`),
   update: (id: string, data: Partial<Employee>) =>

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import {
+  createEmployee,
   getAllEmployees,
   getEmployeeById,
   updateEmployee,
@@ -11,6 +12,9 @@ const router = Router();
 
 // Tất cả routes đều cần authentication
 router.use(authenticate);
+
+// CREATE employee - chỉ admin
+router.post('/', authorize('ADMIN'), createEmployee);
 
 // GET all employees - cả admin và employee đều có thể xem
 router.get('/', getAllEmployees);

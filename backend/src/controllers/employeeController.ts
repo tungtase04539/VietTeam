@@ -1,6 +1,68 @@
 import { Response } from 'express';
+import bcrypt from 'bcryptjs';
 import prisma from '../config/database';
 import { AuthRequest } from '../middleware/auth';
+
+export const createEmployee = async (req: AuthRequest, res: Response) => {
+  try {
+    const { email, password, firstName, lastName, phone, address, position, department, salary, role } = req.body;
+
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      return res.status(400).json({ message: 'Email đã tồn tại' });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create user and employee in transaction
+    const result = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          role: role || 'EMPLOYEE',
+        },
+      });
+
+      const employee = await tx.employee.create({
+        data: {
+          userId: user.id,
+          firstName,
+          lastName,
+          phone,
+          address,
+          position,
+          department,
+          salary: salary ? parseFloat(salary) : null,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              role: true,
+            },
+          },
+        },
+      });
+
+      return employee;
+    });
+
+    res.status(201).json({
+      message: 'Tạo nhân viên thành công',
+      employee: result,
+    });
+  } catch (error) {
+    console.error('Create employee error:', error);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+};
 
 export const getAllEmployees = async (req: AuthRequest, res: Response) => {
   try {
