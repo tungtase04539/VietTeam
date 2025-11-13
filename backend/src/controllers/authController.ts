@@ -43,6 +43,14 @@ export const register = async (req: Request, res: Response) => {
       userId: user.id,
       email: user.email,
       role: user.role,
+      employeeId: user.employee?.id,  // ADD THIS
+  employee: user.employee ? {      // ADD THIS
+    id: user.employee.id,
+    firstName: user.employee.firstName,
+    lastName: user.employee.lastName,
+    position: user.employee.position,
+    department: user.employee.department,
+  } : undefined,
     });
 
     res.status(201).json({
