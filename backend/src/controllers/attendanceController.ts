@@ -90,15 +90,71 @@ export const checkOut = async (req: AuthRequest, res: Response) => {
     }
 
     const now = new Date();
-    const totalHours = attendance.checkInTime
+
+    // Lấy work logs của nhân viên trong ngày hôm nay
+    const todayWorkLogs = await prisma.workLog.findMany({
+      where: {
+        employeeId,
+        date: {
+          gte: today,
+          lt: new Date(today.getTime() + 24 * 60 * 60 * 1000),
+        },
+      },
+      orderBy: {
+        updatedAt: 'desc',
+      },
+    });
+
+    // Tìm work log mới nhất (dựa trên updatedAt)
+    const latestWorkLog = todayWorkLogs.length > 0 ? todayWorkLogs[0] : null;
+
+    let totalHours = attendance.checkInTime
       ? (now.getTime() - attendance.checkInTime.getTime()) / (1000 * 60 * 60)
       : 0;
+
+    let actualHours = totalHours;
+    let warning = null;
+    let lastActivityTime = now;
+
+    // Nếu có work log, kiểm tra khoảng cách thời gian
+    if (latestWorkLog && attendance.checkInTime) {
+      const timeSinceLastUpdate = (now.getTime() - latestWorkLog.updatedAt.getTime()) / (1000 * 60); // phút
+
+      if (timeSinceLastUpdate > 10) {
+        // Tính thời gian thực tế dựa trên work log mới nhất
+        actualHours = (latestWorkLog.updatedAt.getTime() - attendance.checkInTime.getTime()) / (1000 * 60 * 60);
+        lastActivityTime = latestWorkLog.updatedAt;
+
+        warning = {
+          message: 'Bạn chưa cập nhật công việc trong 10 phút gần đây. Thời gian làm việc được tính đến lần cập nhật công việc mới nhất.',
+          lastWorkLogUpdate: latestWorkLog.updatedAt,
+          timeSinceLastUpdate: Math.round(timeSinceLastUpdate),
+          checkOutTime: now,
+          actualWorkHours: Math.round(actualHours * 100) / 100,
+          declaredHours: Math.round(totalHours * 100) / 100,
+        };
+
+        // Sử dụng actualHours thay vì totalHours
+        totalHours = actualHours;
+      }
+    } else if (!latestWorkLog) {
+      // Không có work log nào trong ngày
+      warning = {
+        message: 'Bạn chưa cập nhật công việc nào trong ngày hôm nay. Vui lòng cập nhật work log để ghi nhận thời gian làm việc chính xác.',
+        checkOutTime: now,
+        actualWorkHours: 0,
+        declaredHours: Math.round(totalHours * 100) / 100,
+      };
+
+      // Không có work log = 0 giờ làm việc thực tế
+      totalHours = 0;
+    }
 
     const updatedAttendance = await prisma.attendance.update({
       where: { id: attendance.id },
       data: {
         checkOutTime: now,
-        totalHours: Math.round(totalHours * 100) / 100, // Round to 2 decimal places
+        totalHours: Math.round(totalHours * 100) / 100,
         notes: notes || attendance.notes,
       },
       include: {
@@ -111,10 +167,16 @@ export const checkOut = async (req: AuthRequest, res: Response) => {
       },
     });
 
-    res.json({
+    const response: any = {
       message: 'Check-out thành công',
       attendance: updatedAttendance,
-    });
+    };
+
+    if (warning) {
+      response.warning = warning;
+    }
+
+    res.json(response);
   } catch (error) {
     console.error('Check-out error:', error);
     res.status(500).json({ message: 'Lỗi server' });

@@ -99,7 +99,33 @@ const EmployeeDashboard: React.FC = () => {
       const response = await attendanceAPI.checkOut();
       setTodayAttendance(response.data.attendance);
       setCurrentHours(0);
-      alert('Kết thúc làm việc thành công!');
+
+      // Kiểm tra warning từ backend
+      if (response.data.warning) {
+        const warning = response.data.warning;
+        const warningMessage = `
+⚠️ CẢNH BÁO THỜI GIAN LÀM VIỆC
+
+${warning.message}
+
+📊 Chi tiết:
+• Thời gian check-out: ${new Date(warning.checkOutTime).toLocaleTimeString('vi-VN')}
+${warning.lastWorkLogUpdate ? `• Lần cập nhật work log cuối: ${new Date(warning.lastWorkLogUpdate).toLocaleTimeString('vi-VN')}` : ''}
+${warning.timeSinceLastUpdate ? `• Thời gian không hoạt động: ${warning.timeSinceLastUpdate} phút` : ''}
+
+⏱️ Thời gian làm việc:
+• Thời gian khai báo: ${warning.declaredHours} giờ
+• Thời gian thực tế (được tính): ${warning.actualWorkHours} giờ
+
+💡 Để được tính đầy đủ thời gian, hãy cập nhật work log trong vòng 10 phút trước khi kết thúc làm việc.
+        `.trim();
+
+        alert(warningMessage);
+      } else {
+        alert('Kết thúc làm việc thành công!');
+      }
+
+      loadAttendanceStats(); // Reload stats
     } catch (error: any) {
       alert(error.response?.data?.message || 'Lỗi khi kết thúc làm việc');
     } finally {
