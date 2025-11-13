@@ -82,10 +82,6 @@ const AdminDashboard: React.FC = () => {
     }).format(amount);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('vi-VN');
-  };
-
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Header */}
