@@ -18,6 +18,7 @@ const EmployeeDashboard: React.FC = () => {
   const [todayAttendance, setTodayAttendance] = useState<Attendance | null>(null);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [currentHours, setCurrentHours] = useState<number>(0);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   // Work logs state
   const [workLogs, setWorkLogs] = useState<WorkLog[]>([]);
@@ -43,6 +44,7 @@ const EmployeeDashboard: React.FC = () => {
         const now = new Date();
         const hours = (now.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
         setCurrentHours(hours);
+        setCurrentTime(now);
       }, 1000);
       return () => clearInterval(interval);
     }
@@ -85,9 +87,9 @@ const EmployeeDashboard: React.FC = () => {
     try {
       const response = await attendanceAPI.checkIn();
       setTodayAttendance(response.data.attendance);
-      alert('Check-in thành công!');
+      alert('Bắt đầu làm việc thành công!');
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Lỗi khi check-in');
+      alert(error.response?.data?.message || 'Lỗi khi bắt đầu làm việc');
     } finally {
       setAttendanceLoading(false);
     }
@@ -99,9 +101,9 @@ const EmployeeDashboard: React.FC = () => {
       const response = await attendanceAPI.checkOut();
       setTodayAttendance(response.data.attendance);
       setCurrentHours(0);
-      alert('Check-out thành công!');
+      alert('Kết thúc làm việc thành công!');
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Lỗi khi check-out');
+      alert(error.response?.data?.message || 'Lỗi khi kết thúc làm việc');
     } finally {
       setAttendanceLoading(false);
     }
@@ -165,6 +167,18 @@ const EmployeeDashboard: React.FC = () => {
     return `${h}h ${m}m`;
   };
 
+  const formatTimerDisplay = (hours: number) => {
+    const totalSeconds = Math.floor(hours * 3600);
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    return {
+      hours: h.toString().padStart(2, '0'),
+      minutes: m.toString().padStart(2, '0'),
+      seconds: s.toString().padStart(2, '0'),
+    };
+  };
+
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       PRESENT: 'bg-green-100 text-green-800',
@@ -192,6 +206,9 @@ const EmployeeDashboard: React.FC = () => {
     };
     return texts[status] || status;
   };
+
+  const isWorking = todayAttendance?.checkInTime && !todayAttendance?.checkOutTime;
+  const timerDisplay = formatTimerDisplay(currentHours);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50 to-teal-50">
@@ -226,81 +243,154 @@ const EmployeeDashboard: React.FC = () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
-        {/* Check-in/out Section */}
-        <div className="mb-8 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl p-8 text-white shadow-lg">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-            <div>
-              <h2 className="text-3xl font-light mb-2">Xin chào, {employee?.firstName}!</h2>
-              <p className="text-emerald-50">
-                {new Date().toLocaleDateString('vi-VN', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                })}
-              </p>
-              {todayAttendance && (
-                <div className="mt-4 space-y-1">
-                  <p className="text-sm text-emerald-100">
-                    Check-in: {formatTime(todayAttendance.checkInTime)}
-                  </p>
-                  {todayAttendance.checkOutTime && (
-                    <p className="text-sm text-emerald-100">
-                      Check-out: {formatTime(todayAttendance.checkOutTime)}
-                    </p>
-                  )}
-                  {todayAttendance.checkInTime && !todayAttendance.checkOutTime && (
-                    <p className="text-lg font-medium text-white mt-2">
-                      ⏱️ Đang làm: {formatHours(currentHours)}
-                    </p>
-                  )}
-                  {todayAttendance.totalHours && (
-                    <p className="text-lg font-medium text-white mt-2">
-                      ✅ Tổng giờ hôm nay: {formatHours(todayAttendance.totalHours)}
-                    </p>
-                  )}
+        {/* Time Tracker Card - Prominent Display */}
+        <div className="mb-8">
+          {isWorking ? (
+            <div className="bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600 rounded-3xl p-8 shadow-2xl">
+              <div className="text-center">
+                <div className="mb-6">
+                  <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full">
+                    <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                    <span className="text-white font-medium text-sm">Đang làm việc</span>
+                  </div>
                 </div>
-              )}
-            </div>
 
-            <div className="flex gap-3">
-              {!todayAttendance?.checkInTime ? (
-                <button
-                  onClick={handleCheckIn}
-                  disabled={attendanceLoading}
-                  className="px-6 py-3 bg-white text-emerald-600 font-medium rounded-xl
-                           hover:bg-emerald-50 transition-all duration-200 shadow-lg
-                           disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {attendanceLoading ? 'Đang xử lý...' : '🟢 Check-in'}
-                </button>
-              ) : !todayAttendance.checkOutTime ? (
+                {/* Large Timer Display */}
+                <div className="mb-6">
+                  <div className="flex justify-center items-center gap-4">
+                    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 min-w-[120px]">
+                      <div className="text-6xl font-bold text-white mb-2">
+                        {timerDisplay.hours}
+                      </div>
+                      <div className="text-emerald-100 text-sm font-medium">Giờ</div>
+                    </div>
+                    <div className="text-4xl text-white font-light">:</div>
+                    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 min-w-[120px]">
+                      <div className="text-6xl font-bold text-white mb-2">
+                        {timerDisplay.minutes}
+                      </div>
+                      <div className="text-emerald-100 text-sm font-medium">Phút</div>
+                    </div>
+                    <div className="text-4xl text-white font-light">:</div>
+                    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 min-w-[120px]">
+                      <div className="text-6xl font-bold text-white mb-2">
+                        {timerDisplay.seconds}
+                      </div>
+                      <div className="text-emerald-100 text-sm font-medium">Giây</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Info */}
+                <div className="mb-6 space-y-2">
+                  <p className="text-emerald-50 text-lg">
+                    Bắt đầu lúc: <span className="font-semibold text-white">{formatTime(todayAttendance.checkInTime)}</span>
+                  </p>
+                  <p className="text-emerald-50">
+                    {new Date().toLocaleDateString('vi-VN', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </p>
+                </div>
+
+                {/* End Work Button */}
                 <button
                   onClick={handleCheckOut}
                   disabled={attendanceLoading}
-                  className="px-6 py-3 bg-white text-red-600 font-medium rounded-xl
-                           hover:bg-red-50 transition-all duration-200 shadow-lg
-                           disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-8 py-4 bg-white text-emerald-600 font-semibold text-lg rounded-xl
+                           hover:bg-emerald-50 transition-all duration-200 shadow-xl hover:shadow-2xl
+                           disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105"
                 >
-                  {attendanceLoading ? 'Đang xử lý...' : '🔴 Check-out'}
+                  {attendanceLoading ? 'Đang xử lý...' : '⏹️ Kết thúc làm việc'}
                 </button>
-              ) : (
-                <div className="px-6 py-3 bg-white/20 backdrop-blur-sm text-white font-medium rounded-xl">
-                  ✅ Đã check-out hôm nay
-                </div>
-              )}
-            </div>
-          </div>
 
-          {todayAttendance && (
-            <div className="mt-6 pt-6 border-t border-emerald-400/30">
-              <span
-                className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
-                  todayAttendance.status
-                )}`}
-              >
-                {getStatusText(todayAttendance.status)}
-              </span>
+                {/* Status Badge */}
+                {todayAttendance.status && (
+                  <div className="mt-6">
+                    <span
+                      className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${getStatusColor(
+                        todayAttendance.status
+                      )}`}
+                    >
+                      {getStatusText(todayAttendance.status)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-gradient-to-br from-slate-100 via-slate-50 to-white rounded-3xl p-8 shadow-lg border border-slate-200">
+              <div className="text-center">
+                <div className="mb-6">
+                  <div className="w-24 h-24 bg-slate-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg
+                      className="w-12 h-12 text-slate-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                  <h2 className="text-2xl font-light text-slate-900 mb-2">
+                    Chào {employee?.firstName}!
+                  </h2>
+                  <p className="text-slate-500">
+                    {new Date().toLocaleDateString('vi-VN', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </p>
+                </div>
+
+                {todayAttendance?.checkOutTime ? (
+                  <div className="mb-6">
+                    <div className="inline-flex items-center gap-2 bg-green-100 px-4 py-2 rounded-full mb-4">
+                      <svg
+                        className="w-5 h-5 text-green-600"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      <span className="text-green-800 font-medium text-sm">
+                        Đã hoàn thành làm việc hôm nay
+                      </span>
+                    </div>
+                    <p className="text-slate-700 mb-2">
+                      Tổng thời gian: <span className="font-bold text-emerald-600 text-xl">{formatHours(todayAttendance.totalHours || 0)}</span>
+                    </p>
+                    <p className="text-sm text-slate-500">
+                      {formatTime(todayAttendance.checkInTime)} - {formatTime(todayAttendance.checkOutTime)}
+                    </p>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleCheckIn}
+                    disabled={attendanceLoading}
+                    className="px-8 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white
+                             font-semibold text-lg rounded-xl hover:from-emerald-700 hover:to-teal-700
+                             transition-all duration-200 shadow-lg hover:shadow-xl
+                             disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105"
+                  >
+                    {attendanceLoading ? 'Đang xử lý...' : '▶️ Bắt đầu làm việc'}
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>

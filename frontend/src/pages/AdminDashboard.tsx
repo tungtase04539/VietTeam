@@ -246,6 +246,63 @@ const AdminDashboard: React.FC = () => {
     return texts[status] || status;
   };
 
+  // Quick date filter helpers
+  const setQuickDateFilter = (period: 'today' | 'yesterday' | 'last7days' | 'last30days') => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let startDate = new Date();
+    let endDate = new Date();
+
+    switch (period) {
+      case 'today':
+        startDate = today;
+        endDate = today;
+        break;
+      case 'yesterday':
+        startDate = new Date(today);
+        startDate.setDate(today.getDate() - 1);
+        endDate = new Date(today);
+        endDate.setDate(today.getDate() - 1);
+        break;
+      case 'last7days':
+        startDate = new Date(today);
+        startDate.setDate(today.getDate() - 6);
+        endDate = today;
+        break;
+      case 'last30days':
+        startDate = new Date(today);
+        startDate.setDate(today.getDate() - 29);
+        endDate = today;
+        break;
+    }
+
+    setAttendanceFilters({
+      ...attendanceFilters,
+      startDate: startDate.toISOString().split('T')[0],
+      endDate: endDate.toISOString().split('T')[0],
+    });
+  };
+
+  // Group attendances by date and calculate daily totals
+  const getDailySummary = () => {
+    const dailyMap = new Map<string, { date: string; totalHours: number; employeeCount: number }>();
+
+    attendances.forEach((att) => {
+      const dateKey = att.date.split('T')[0];
+      if (!dailyMap.has(dateKey)) {
+        dailyMap.set(dateKey, { date: dateKey, totalHours: 0, employeeCount: 0 });
+      }
+      const entry = dailyMap.get(dateKey)!;
+      if (att.totalHours) {
+        entry.totalHours += att.totalHours;
+        entry.employeeCount += 1;
+      }
+    });
+
+    return Array.from(dailyMap.values()).sort((a, b) => b.date.localeCompare(a.date));
+  };
+
   // Get unique departments for filters
   const departments = Array.from(new Set(employees.map((e) => e.department)));
 
@@ -596,6 +653,36 @@ const AdminDashboard: React.FC = () => {
                 {/* Attendance Filters */}
                 <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-slate-200/50 shadow-sm p-6">
                   <h3 className="text-lg font-medium text-slate-900 mb-4">Lọc bản ghi</h3>
+
+                  {/* Quick Date Filters */}
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    <button
+                      onClick={() => setQuickDateFilter('today')}
+                      className="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors text-sm font-medium"
+                    >
+                      Hôm nay
+                    </button>
+                    <button
+                      onClick={() => setQuickDateFilter('yesterday')}
+                      className="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors text-sm font-medium"
+                    >
+                      Hôm qua
+                    </button>
+                    <button
+                      onClick={() => setQuickDateFilter('last7days')}
+                      className="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors text-sm font-medium"
+                    >
+                      7 ngày qua
+                    </button>
+                    <button
+                      onClick={() => setQuickDateFilter('last30days')}
+                      className="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors text-sm font-medium"
+                    >
+                      30 ngày qua
+                    </button>
+                  </div>
+
+                  {/* Advanced Filters */}
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <input
                       type="date"
@@ -644,6 +731,37 @@ const AdminDashboard: React.FC = () => {
                     </select>
                   </div>
                 </div>
+
+                {/* Daily Summary */}
+                {attendances.length > 0 && (
+                  <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-slate-200/50 shadow-sm p-6">
+                    <h3 className="text-lg font-medium text-slate-900 mb-4">Tổng giờ làm theo ngày</h3>
+                    <div className="space-y-3">
+                      {getDailySummary().map((day) => (
+                        <div
+                          key={day.date}
+                          className="flex items-center justify-between p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
+                        >
+                          <div>
+                            <p className="font-medium text-slate-900">
+                              {new Date(day.date).toLocaleDateString('vi-VN', {
+                                weekday: 'long',
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                              })}
+                            </p>
+                            <p className="text-sm text-slate-500">{day.employeeCount} nhân viên</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-2xl font-bold text-indigo-600">{formatHours(day.totalHours)}</p>
+                            <p className="text-sm text-slate-500">Tổng giờ làm</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Attendance Records */}
                 <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-slate-200/50 shadow-sm overflow-hidden">
