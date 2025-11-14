@@ -82,9 +82,30 @@ export interface Attendance {
 export interface AttendanceStatistics {
   totalDays: number;
   totalHours: number;
-  presentDays: number;
-  lateDays: number;
+  averageHoursPerDay: number;
   attendanceRate: number;
+}
+
+export interface TodayAttendanceResponse {
+  attendance: Attendance | null;
+  allSessions: Attendance[];
+  totalHoursToday: number;
+  sessionsCount: number;
+}
+
+export interface CheckOutWarning {
+  message: string;
+  lastWorkLogUpdate?: string;
+  timeSinceLastUpdate?: number;
+  checkOutTime: string;
+  actualWorkHours: number;
+  declaredHours: number;
+}
+
+export interface CheckOutResponse {
+  message: string;
+  attendance: Attendance;
+  warning?: CheckOutWarning;
 }
 
 export interface AttendanceSummary {

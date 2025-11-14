@@ -8,6 +8,8 @@ import {
   WorkLogStatistics,
   CreateWorkLogData,
   WorkLogStatus,
+  TodayAttendanceResponse,
+  CheckOutResponse,
 } from '../types';
 
 const EmployeeDashboard: React.FC = () => {
@@ -16,7 +18,6 @@ const EmployeeDashboard: React.FC = () => {
 
   // Attendance state
   const [todayAttendance, setTodayAttendance] = useState<Attendance | null>(null);
-  const [allSessions, setAllSessions] = useState<Attendance[]>([]);
   const [totalHoursToday, setTotalHoursToday] = useState<number>(0);
   const [sessionsCount, setSessionsCount] = useState<number>(0);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
@@ -54,10 +55,10 @@ const EmployeeDashboard: React.FC = () => {
   const loadTodayAttendance = async () => {
     try {
       const response = await attendanceAPI.getToday();
-      setTodayAttendance(response.data.attendance);
-      setAllSessions(response.data.allSessions || []);
-      setTotalHoursToday(response.data.totalHoursToday || 0);
-      setSessionsCount(response.data.sessionsCount || 0);
+      const data = response.data as TodayAttendanceResponse;
+      setTodayAttendance(data.attendance);
+      setTotalHoursToday(data.totalHoursToday || 0);
+      setSessionsCount(data.sessionsCount || 0);
     } catch (error: any) {
       console.error('Error loading attendance:', error);
     }
@@ -104,12 +105,13 @@ const EmployeeDashboard: React.FC = () => {
     setAttendanceLoading(true);
     try {
       const response = await attendanceAPI.checkOut();
-      setTodayAttendance(response.data.attendance);
+      const data = response.data as CheckOutResponse;
+      setTodayAttendance(data.attendance);
       setCurrentHours(0);
 
       // Kiểm tra warning từ backend
-      if (response.data.warning) {
-        const warning = response.data.warning;
+      if (data.warning) {
+        const warning = data.warning;
         const warningMessage = `
 ⚠️ CẢNH BÁO THỜI GIAN LÀM VIỆC
 
