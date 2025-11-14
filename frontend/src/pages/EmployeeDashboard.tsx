@@ -147,7 +147,9 @@ ${warning.timeSinceLastUpdate ? `• Thời gian không hoạt động: ${warnin
     e.preventDefault();
     setWorkLogLoading(true);
 
-    const formData = new FormData(e.currentTarget);
+    // Lưu reference của form trước khi async operations
+    const form = e.currentTarget;
+    const formData = new FormData(form);
     const data: CreateWorkLogData = {
       title: formData.get('title') as string,
       description: formData.get('description') as string,
@@ -157,11 +159,10 @@ ${warning.timeSinceLastUpdate ? `• Thời gian không hoạt động: ${warnin
 
     try {
       await workLogAPI.create(data);
-      alert('Đã thêm công việc!');
-      e.currentTarget.reset();
+      form.reset();
       setShowAddModal(false);
-      // Load lại work logs không cần await để tránh lỗi block UI
       loadWorkLogs();
+      alert('Đã thêm công việc!');
     } catch (error: any) {
       console.error('Add work log error:', error);
       alert(error.response?.data?.message || 'Lỗi khi thêm công việc');
