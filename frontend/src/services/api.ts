@@ -13,6 +13,12 @@ import {
   WorkLogStatistics,
   CreateWorkLogData,
   UpdateWorkLogData,
+  Team,
+  CreateTeamData,
+  UpdateTeamData,
+  AssignWorkLogData,
+  MyTeamResponse,
+  UpdateRoleData,
 } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -53,6 +59,8 @@ export const employeeAPI = {
   getById: (id: string) => api.get<Employee>(`/employees/${id}`),
   update: (id: string, data: Partial<Employee>) =>
     api.put<{ message: string; employee: Employee }>(`/employees/${id}`, data),
+  updateRole: (id: string, data: UpdateRoleData) =>
+    api.patch<{ message: string; user: User }>(`/employees/${id}/role`, data),
   delete: (id: string) => api.delete<{ message: string }>(`/employees/${id}`),
 };
 
@@ -106,6 +114,25 @@ export const workLogAPI = {
       employeeStats: Record<string, any>;
       departmentStats: Record<string, any>;
     }>('/work-logs/stats', { params }),
+};
+
+// Team API
+export const teamAPI = {
+  create: (data: CreateTeamData) =>
+    api.post<{ message: string; team: Team }>('/teams', data),
+  getAll: () => api.get<{ teams: Team[] }>('/teams/all'),
+  getMyTeam: () => api.get<MyTeamResponse>('/teams/my-team'),
+  update: (id: string, data: UpdateTeamData) =>
+    api.put<{ message: string; team: Team }>(`/teams/${id}`, data),
+  delete: (id: string) => api.delete<{ message: string }>(`/teams/${id}`),
+  addMember: (teamId: string, employeeId: string) =>
+    api.post<{ message: string; employee: Employee }>(`/teams/${teamId}/members`, {
+      employeeId,
+    }),
+  removeMember: (employeeId: string) =>
+    api.delete<{ message: string; employee: Employee }>(`/teams/members/${employeeId}`),
+  assignWork: (data: AssignWorkLogData) =>
+    api.post<{ message: string; workLog: WorkLog }>('/teams/assign-work', data),
 };
 
 export default api;

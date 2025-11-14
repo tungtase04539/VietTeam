@@ -1,7 +1,7 @@
 export interface User {
   id: string;
   email: string;
-  role: 'ADMIN' | 'EMPLOYEE';
+  role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
   employee?: Employee;
 }
 
@@ -37,7 +37,7 @@ export interface LoginData {
 }
 
 export interface RegisterData extends LoginData {
-  role?: 'ADMIN' | 'EMPLOYEE';
+  role?: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
   firstName: string;
   lastName: string;
   position: string;
@@ -55,7 +55,7 @@ export interface CreateEmployeeData {
   position: string;
   department: string;
   salary?: number;
-  role?: 'ADMIN' | 'EMPLOYEE';
+  role?: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
 }
 
 export type AttendanceStatus = 'PRESENT' | 'LATE' | 'ABSENT' | 'HALF_DAY' | 'WORK_FROM_HOME';
@@ -134,6 +134,7 @@ export type WorkLogStatus = 'TODO' | 'IN_PROGRESS' | 'COMPLETED' | 'BLOCKED';
 export interface WorkLog {
   id: string;
   employeeId: string;
+  assignedById?: string;
   date: string;
   title: string;
   description?: string;
@@ -146,6 +147,12 @@ export interface WorkLog {
     lastName: string;
     position: string;
     department: string;
+  };
+  assignedBy?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    position: string;
   };
 }
 
@@ -172,4 +179,59 @@ export interface UpdateWorkLogData {
   description?: string;
   hoursSpent?: number;
   status?: WorkLogStatus;
+}
+
+// Team Management Types
+export interface Team {
+  id: string;
+  name: string;
+  description?: string;
+  managerId?: string;
+  manager?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    position: string;
+    user?: {
+      email: string;
+      role: string;
+    };
+  };
+  members: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    position: string;
+    department: string;
+  }[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTeamData {
+  name: string;
+  description?: string;
+  managerId?: string;
+}
+
+export interface UpdateTeamData {
+  name?: string;
+  description?: string;
+  managerId?: string;
+}
+
+export interface AssignWorkLogData {
+  employeeId: string;
+  title: string;
+  description?: string;
+  date?: string;
+}
+
+export interface MyTeamResponse {
+  team?: Team;
+  managedTeam?: Team;
+}
+
+export interface UpdateRoleData {
+  role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
 }
