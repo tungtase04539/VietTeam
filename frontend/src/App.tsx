@@ -7,6 +7,7 @@ import RegisterPage from './pages/RegisterPage';
 import AdminDashboard from './pages/AdminDashboard';
 import ManagerDashboard from './pages/ManagerDashboard';
 import EmployeeDashboard from './pages/EmployeeDashboard';
+import TestToast from './pages/TestToast';
 import PrivateRoute from './components/PrivateRoute';
 
 const DashboardRouter: React.FC = () => {
@@ -31,6 +32,7 @@ function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/test-toast" element={<TestToast />} />
             <Route
               path="/dashboard"
               element={
