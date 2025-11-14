@@ -581,18 +581,29 @@ ${warning.timeSinceLastUpdate ? `• Thời gian không hoạt động: ${warnin
                 {workLogs.map((log) => (
                   <div
                     key={log.id}
-                    className="border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                    className="border border-slate-200 rounded-xl p-6 hover:shadow-lg transition-all duration-200"
                   >
-                    <div className="flex justify-between items-start mb-3">
+                    {/* Header with title and delete button */}
+                    <div className="flex justify-between items-start mb-4">
                       <div className="flex-1">
-                        <h3 className="font-medium text-slate-900 mb-1">{log.title}</h3>
+                        <h3 className="font-semibold text-slate-900 text-lg mb-1">{log.title}</h3>
                         {log.description && (
-                          <p className="text-sm text-slate-600">{log.description}</p>
+                          <p className="text-sm text-slate-600 mt-2">{log.description}</p>
+                        )}
+                        {log.hoursSpent && (
+                          <p className="text-sm text-slate-500 mt-2">
+                            ⏱️ Thời gian: {formatHours(log.hoursSpent)}
+                          </p>
+                        )}
+                        {log.assignedBy && (
+                          <p className="text-xs text-blue-600 mt-1">
+                            📋 Giao bởi: {log.assignedBy.firstName} {log.assignedBy.lastName}
+                          </p>
                         )}
                       </div>
                       <button
                         onClick={() => handleDeleteWorkLog(log.id)}
-                        className="ml-4 text-red-500 hover:text-red-700"
+                        className="ml-4 p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path
@@ -605,30 +616,59 @@ ${warning.timeSinceLastUpdate ? `• Thời gian không hoạt động: ${warnin
                       </button>
                     </div>
 
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(log.status)}`}>
-                          {getStatusText(log.status)}
-                        </span>
-                        {log.hoursSpent && (
-                          <span className="text-sm text-slate-500">{formatHours(log.hoursSpent)}</span>
-                        )}
-                      </div>
+                    {/* Status Buttons - Large and centered */}
+                    <div className="mt-6 pt-4 border-t border-slate-200">
+                      <p className="text-xs text-slate-500 mb-3 text-center font-medium">
+                        TRẠNG THÁI CÔNG VIỆC
+                      </p>
+                      <div className="grid grid-cols-3 gap-3">
+                        <button
+                          onClick={() => handleUpdateWorkLogStatus(log.id, 'TODO')}
+                          className={`px-4 py-3 rounded-lg font-medium text-sm transition-all duration-200 ${
+                            log.status === 'TODO'
+                              ? 'bg-gray-500 text-white shadow-md scale-105'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                        >
+                          <div className="flex flex-col items-center gap-1">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                            <span>Chưa làm</span>
+                          </div>
+                        </button>
 
-                      <div className="flex gap-2">
-                        {log.status !== 'COMPLETED' && (
-                          <button
-                            onClick={() =>
-                              handleUpdateWorkLogStatus(
-                                log.id,
-                                log.status === 'TODO' ? 'IN_PROGRESS' : 'COMPLETED'
-                              )
-                            }
-                            className="text-sm px-3 py-1 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
-                          >
-                            {log.status === 'TODO' ? 'Bắt đầu' : 'Hoàn thành'}
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleUpdateWorkLogStatus(log.id, 'IN_PROGRESS')}
+                          className={`px-4 py-3 rounded-lg font-medium text-sm transition-all duration-200 ${
+                            log.status === 'IN_PROGRESS'
+                              ? 'bg-blue-500 text-white shadow-md scale-105'
+                              : 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+                          }`}
+                        >
+                          <div className="flex flex-col items-center gap-1">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            <span>Đang làm</span>
+                          </div>
+                        </button>
+
+                        <button
+                          onClick={() => handleUpdateWorkLogStatus(log.id, 'COMPLETED')}
+                          className={`px-4 py-3 rounded-lg font-medium text-sm transition-all duration-200 ${
+                            log.status === 'COMPLETED'
+                              ? 'bg-green-500 text-white shadow-md scale-105'
+                              : 'bg-green-100 text-green-600 hover:bg-green-200'
+                          }`}
+                        >
+                          <div className="flex flex-col items-center gap-1">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>Hoàn thành</span>
+                          </div>
+                        </button>
                       </div>
                     </div>
                   </div>
