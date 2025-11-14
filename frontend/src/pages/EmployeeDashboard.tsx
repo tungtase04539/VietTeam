@@ -161,10 +161,15 @@ ${warning.timeSinceLastUpdate ? `• Thời gian không hoạt động: ${warnin
       await workLogAPI.create(data);
       form.reset();
       setShowAddModal(false);
-      loadWorkLogs();
       alert('Đã thêm công việc!');
+      // Load lại work logs sau khi đóng modal
+      loadWorkLogs().catch(err => {
+        console.error('Error reloading work logs:', err);
+        // Không hiển thị alert cho lỗi reload, vì work log đã được tạo thành công
+      });
     } catch (error: any) {
       console.error('Add work log error:', error);
+      console.error('Full error object:', JSON.stringify(error, null, 2));
       alert(error.response?.data?.message || 'Lỗi khi thêm công việc');
     } finally {
       setWorkLogLoading(false);
