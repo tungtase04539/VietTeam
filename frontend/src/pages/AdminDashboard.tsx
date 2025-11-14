@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { employeeAPI, attendanceAPI, workLogAPI, teamAPI } from '../services/api';
+import { employeeAPI, attendanceAPI, workLogAPI } from '../services/api';
 import {
   Employee,
   CreateEmployeeData,
   Attendance,
   WorkLog,
   AttendanceSummary,
-  Team,
-  CreateTeamData,
 } from '../types';
 import TeamManagementTab from '../components/TeamManagementTab';
 
