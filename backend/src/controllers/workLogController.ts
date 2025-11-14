@@ -12,6 +12,10 @@ export const createWorkLog = async (req: AuthRequest, res: Response) => {
 
     const { title, description, hoursSpent, status, date } = req.body;
 
+    // Normalize date to start of day to avoid timezone issues
+    const workLogDate = date ? new Date(date) : new Date();
+    workLogDate.setHours(0, 0, 0, 0);
+
     const workLog = await prisma.workLog.create({
       data: {
         employeeId,
@@ -19,7 +23,7 @@ export const createWorkLog = async (req: AuthRequest, res: Response) => {
         description,
         hoursSpent: hoursSpent ? parseFloat(hoursSpent) : null,
         status: status || 'TODO',
-        date: date ? new Date(date) : new Date(),
+        date: workLogDate,
       },
     });
 
@@ -49,8 +53,16 @@ export const getMyWorkLogs = async (req: AuthRequest, res: Response) => {
 
     if (startDate || endDate) {
       where.date = {};
-      if (startDate) where.date.gte = new Date(startDate as string);
-      if (endDate) where.date.lte = new Date(endDate as string);
+      if (startDate) {
+        const start = new Date(startDate as string);
+        start.setHours(0, 0, 0, 0);
+        where.date.gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate as string);
+        end.setHours(23, 59, 59, 999); // End of day
+        where.date.lte = end;
+      }
     }
 
     const workLogs = await prisma.workLog.findMany({
@@ -97,8 +109,16 @@ export const getAllWorkLogs = async (req: AuthRequest, res: Response) => {
 
     if (startDate || endDate) {
       where.date = {};
-      if (startDate) where.date.gte = new Date(startDate as string);
-      if (endDate) where.date.lte = new Date(endDate as string);
+      if (startDate) {
+        const start = new Date(startDate as string);
+        start.setHours(0, 0, 0, 0);
+        where.date.gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate as string);
+        end.setHours(23, 59, 59, 999); // End of day
+        where.date.lte = end;
+      }
     }
 
     const workLogs = await prisma.workLog.findMany({
