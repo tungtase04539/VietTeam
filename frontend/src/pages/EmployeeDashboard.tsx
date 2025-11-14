@@ -157,11 +157,13 @@ ${warning.timeSinceLastUpdate ? `• Thời gian không hoạt động: ${warnin
 
     try {
       await workLogAPI.create(data);
+      alert('Đã thêm công việc!');
       e.currentTarget.reset();
       setShowAddModal(false);
-      await loadWorkLogs();
-      alert('Đã thêm công việc!');
+      // Load lại work logs không cần await để tránh lỗi block UI
+      loadWorkLogs();
     } catch (error: any) {
+      console.error('Add work log error:', error);
       alert(error.response?.data?.message || 'Lỗi khi thêm công việc');
     } finally {
       setWorkLogLoading(false);
