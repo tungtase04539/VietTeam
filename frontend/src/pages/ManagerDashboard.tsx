@@ -1,0 +1,425 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { teamAPI, workLogAPI, authAPI } from '../services/api';
+import { Team, WorkLog, User } from '../types';
+
+export default function ManagerDashboard() {
+  const navigate = useNavigate();
+  const [user, setUser] = useState<User | null>(null);
+  const [team, setTeam] = useState<Team | null>(null);
+  const [teamWorkLogs, setTeamWorkLogs] = useState<WorkLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAssignWorkModal, setShowAssignWorkModal] = useState(false);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [profileRes, teamRes] = await Promise.all([
+        authAPI.getProfile(),
+        teamAPI.getMyTeam(),
+      ]);
+
+      setUser(profileRes.data);
+      setTeam(teamRes.data.managedTeam || null);
+
+      if (teamRes.data.managedTeam) {
+        // Load team work logs
+        await loadTeamWorkLogs();
+      }
+    } catch (error: any) {
+      console.error('Load data error:', error);
+      if (error.response?.status === 401) {
+        navigate('/login');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadTeamWorkLogs = async () => {
+    try {
+      const today = new Date();
+      const startDate = new Date(today);
+      startDate.setDate(today.getDate() - 7); // Last 7 days
+
+      const res = await workLogAPI.getAll({
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: today.toISOString().split('T')[0],
+      });
+
+      // Filter work logs for team members
+      const teamMemberIds = team?.members.map((m) => m.id) || [];
+      const filteredLogs = res.data.workLogs.filter((log) =>
+        teamMemberIds.includes(log.employeeId)
+      );
+
+      setTeamWorkLogs(filteredLogs);
+    } catch (error) {
+      console.error('Load team work logs error:', error);
+    }
+  };
+
+  const handleAssignWork = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+
+    try {
+      await teamAPI.assignWork({
+        employeeId: formData.get('employeeId') as string,
+        title: formData.get('title') as string,
+        description: formData.get('description') as string,
+      });
+
+      form.reset();
+      setShowAssignWorkModal(false);
+      alert('Giao việc thành công!');
+      await loadTeamWorkLogs();
+    } catch (error: any) {
+      console.error('Assign work error:', error);
+      alert(error.response?.data?.message || 'Lỗi khi giao việc');
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    navigate('/login');
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-xl">Đang tải...</div>
+      </div>
+    );
+  }
+
+  if (!team) {
+    return (
+      <div className="min-h-screen bg-gray-100">
+        <nav className="bg-white shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between h-16 items-center">
+              <h1 className="text-xl font-bold text-gray-900">
+                Bảng điều khiển Quản lý
+              </h1>
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+              >
+                Đăng xuất
+              </button>
+            </div>
+          </div>
+        </nav>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+            <h2 className="text-xl font-semibold text-yellow-800 mb-2">
+              Chưa được phân nhóm
+            </h2>
+            <p className="text-yellow-700">
+              Bạn chưa được phân vào nhóm nào hoặc chưa được giao quyền quản lý nhóm.
+              Vui lòng liên hệ quản trị viên.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const getStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case 'COMPLETED':
+        return 'bg-green-100 text-green-800';
+      case 'IN_PROGRESS':
+        return 'bg-blue-100 text-blue-800';
+      case 'TODO':
+        return 'bg-gray-100 text-gray-800';
+      case 'BLOCKED':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'COMPLETED':
+        return 'Hoàn thành';
+      case 'IN_PROGRESS':
+        return 'Đang làm';
+      case 'TODO':
+        return 'Chưa làm';
+      case 'BLOCKED':
+        return 'Bị chặn';
+      default:
+        return status;
+    }
+  };
+
+  // Calculate team statistics
+  const teamStats = {
+    totalMembers: team.members.length,
+    totalTasks: teamWorkLogs.length,
+    completedTasks: teamWorkLogs.filter((log) => log.status === 'COMPLETED').length,
+    inProgressTasks: teamWorkLogs.filter((log) => log.status === 'IN_PROGRESS').length,
+    todoTasks: teamWorkLogs.filter((log) => log.status === 'TODO').length,
+    totalHours: teamWorkLogs.reduce((sum, log) => sum + (log.hoursSpent || 0), 0),
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      {/* Navigation */}
+      <nav className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16 items-center">
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">
+                Bảng điều khiển Quản lý
+              </h1>
+              <p className="text-sm text-gray-600">
+                {user?.employee?.firstName} {user?.employee?.lastName} - {team.name}
+              </p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+            >
+              Đăng xuất
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Team Overview */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold text-gray-900">Nhóm: {team.name}</h2>
+            <button
+              onClick={() => setShowAssignWorkModal(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              Giao việc mới
+            </button>
+          </div>
+
+          {team.description && (
+            <p className="text-gray-600 mb-4">{team.description}</p>
+          )}
+
+          {/* Statistics */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-blue-600">
+                {teamStats.totalMembers}
+              </div>
+              <div className="text-sm text-gray-600">Thành viên</div>
+            </div>
+            <div className="bg-green-50 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-green-600">
+                {teamStats.completedTasks}
+              </div>
+              <div className="text-sm text-gray-600">Đã hoàn thành</div>
+            </div>
+            <div className="bg-yellow-50 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-yellow-600">
+                {teamStats.inProgressTasks}
+              </div>
+              <div className="text-sm text-gray-600">Đang làm</div>
+            </div>
+            <div className="bg-purple-50 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-purple-600">
+                {teamStats.totalHours.toFixed(1)}h
+              </div>
+              <div className="text-sm text-gray-600">Tổng giờ</div>
+            </div>
+          </div>
+
+          {/* Team Members */}
+          <h3 className="text-lg font-semibold mb-3">Thành viên nhóm</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {team.members.map((member) => {
+              const memberTasks = teamWorkLogs.filter(
+                (log) => log.employeeId === member.id
+              );
+              const memberHours = memberTasks.reduce(
+                (sum, log) => sum + (log.hoursSpent || 0),
+                0
+              );
+
+              return (
+                <div
+                  key={member.id}
+                  className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                >
+                  <h4 className="font-semibold text-gray-900">
+                    {member.firstName} {member.lastName}
+                  </h4>
+                  <p className="text-sm text-gray-600">{member.position}</p>
+                  <p className="text-sm text-gray-500">{member.department}</p>
+                  <div className="mt-2 text-sm">
+                    <span className="text-gray-600">
+                      {memberTasks.length} công việc - {memberHours.toFixed(1)}h
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Team Work Logs */}
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            Công việc nhóm (7 ngày gần đây)
+          </h2>
+
+          {teamWorkLogs.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">
+              Chưa có công việc nào được ghi nhận
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Nhân viên
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Công việc
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Trạng thái
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Giờ
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Ngày
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {teamWorkLogs.map((log) => (
+                    <tr key={log.id}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {log.employee?.firstName} {log.employee?.lastName}
+                        </div>
+                        {log.assignedBy && (
+                          <div className="text-xs text-gray-500">
+                            Giao bởi: {log.assignedBy.firstName}{' '}
+                            {log.assignedBy.lastName}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900">{log.title}</div>
+                        {log.description && (
+                          <div className="text-xs text-gray-500">
+                            {log.description}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(
+                            log.status
+                          )}`}
+                        >
+                          {getStatusLabel(log.status)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {log.hoursSpent ? `${log.hoursSpent}h` : '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(log.date).toLocaleDateString('vi-VN')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Assign Work Modal */}
+      {showAssignWorkModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-xl font-bold mb-4">Giao việc mới</h3>
+            <form onSubmit={handleAssignWork}>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nhân viên
+                </label>
+                <select
+                  name="employeeId"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Chọn nhân viên</option>
+                  {team.members.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.firstName} {member.lastName} - {member.position}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tiêu đề công việc
+                </label>
+                <input
+                  type="text"
+                  name="title"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Ví dụ: Hoàn thành báo cáo tháng 11"
+                />
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Mô tả
+                </label>
+                <textarea
+                  name="description"
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Mô tả chi tiết công việc..."
+                />
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAssignWorkModal(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  Giao việc
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

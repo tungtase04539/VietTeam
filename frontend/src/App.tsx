@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import AdminDashboard from './pages/AdminDashboard';
+import ManagerDashboard from './pages/ManagerDashboard';
 import EmployeeDashboard from './pages/EmployeeDashboard';
 import PrivateRoute from './components/PrivateRoute';
 
@@ -12,6 +13,10 @@ const DashboardRouter: React.FC = () => {
 
   if (user?.role === 'ADMIN') {
     return <AdminDashboard />;
+  }
+
+  if (user?.role === 'MANAGER') {
+    return <ManagerDashboard />;
   }
 
   return <EmployeeDashboard />;

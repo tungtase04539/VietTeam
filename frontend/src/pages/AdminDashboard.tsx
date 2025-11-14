@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { employeeAPI, attendanceAPI, workLogAPI } from '../services/api';
+import { employeeAPI, attendanceAPI, workLogAPI, teamAPI } from '../services/api';
 import {
   Employee,
   CreateEmployeeData,
   Attendance,
   WorkLog,
   AttendanceSummary,
+  Team,
+  CreateTeamData,
 } from '../types';
+import TeamManagementTab from '../components/TeamManagementTab';
 
-type TabType = 'employees' | 'attendance' | 'worklogs';
+type TabType = 'employees' | 'attendance' | 'worklogs' | 'teams';
 
 const AdminDashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -496,6 +499,16 @@ const AdminDashboard: React.FC = () => {
                 >
                   Công việc
                 </button>
+                <button
+                  onClick={() => setActiveTab('teams')}
+                  className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    activeTab === 'teams'
+                      ? 'border-indigo-600 text-indigo-600'
+                      : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                  }`}
+                >
+                  Nhóm
+                </button>
               </nav>
             </div>
 
@@ -958,6 +971,8 @@ const AdminDashboard: React.FC = () => {
                 </div>
               </div>
             )}
+
+            {activeTab === 'teams' && <TeamManagementTab />}
           </>
         )}
       </main>
