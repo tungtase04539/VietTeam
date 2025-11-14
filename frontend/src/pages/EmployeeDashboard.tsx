@@ -67,14 +67,17 @@ const EmployeeDashboard: React.FC = () => {
   const loadWorkLogs = async () => {
     try {
       const today = new Date().toISOString().split('T')[0];
+      console.log('Loading work logs for date:', today);
       const response = await workLogAPI.getMyLogs({
         startDate: today,
         endDate: today,
       });
+      console.log('Work logs loaded:', response.data);
       setWorkLogs(response.data.workLogs);
       setWorkLogStats(response.data.statistics);
     } catch (error: any) {
       console.error('Error loading work logs:', error);
+      throw error; // Re-throw để catch bên ngoài biết
     }
   };
 
@@ -158,15 +161,22 @@ ${warning.timeSinceLastUpdate ? `• Thời gian không hoạt động: ${warnin
     };
 
     try {
+      console.log('Creating work log with data:', data);
       await workLogAPI.create(data);
+      console.log('Work log created successfully');
+
       form.reset();
       setShowAddModal(false);
       alert('Đã thêm công việc!');
+
       // Load lại work logs sau khi đóng modal
-      loadWorkLogs().catch(err => {
-        console.error('Error reloading work logs:', err);
-        // Không hiển thị alert cho lỗi reload, vì work log đã được tạo thành công
-      });
+      try {
+        await loadWorkLogs();
+        console.log('Work logs reloaded successfully');
+      } catch (reloadError) {
+        console.error('Error reloading work logs:', reloadError);
+        alert('Đã thêm công việc nhưng không thể tải lại danh sách. Vui lòng refresh trang.');
+      }
     } catch (error: any) {
       console.error('Add work log error:', error);
       console.error('Full error object:', JSON.stringify(error, null, 2));
