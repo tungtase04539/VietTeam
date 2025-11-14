@@ -74,6 +74,7 @@ export const checkOut = async (req: AuthRequest, res: Response) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    // Tìm session đang active (chưa check-out)
     const attendance = await prisma.attendance.findFirst({
       where: {
         employeeId,
@@ -81,15 +82,12 @@ export const checkOut = async (req: AuthRequest, res: Response) => {
           gte: today,
           lt: new Date(today.getTime() + 24 * 60 * 60 * 1000),
         },
+        checkOutTime: null, // Chỉ lấy session chưa check-out
       },
     });
 
     if (!attendance) {
-      return res.status(404).json({ message: 'Bạn chưa check-in hôm nay' });
-    }
-
-    if (attendance.checkOutTime) {
-      return res.status(400).json({ message: 'Bạn đã check-out rồi' });
+      return res.status(404).json({ message: 'Bạn không có session làm việc nào đang hoạt động' });
     }
 
     const now = new Date();
