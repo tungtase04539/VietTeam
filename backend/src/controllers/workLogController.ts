@@ -16,13 +16,15 @@ export const createWorkLog = async (req: AuthRequest, res: Response) => {
     const workLogDate = date ? new Date(date) : new Date();
     workLogDate.setHours(0, 0, 0, 0);
 
+    // When employee creates their own work log, default status is IN_PROGRESS
+    // When assigned by manager, status will be set by assignWorkLog endpoint
     const workLog = await prisma.workLog.create({
       data: {
         employeeId,
         title,
         description,
         hoursSpent: hoursSpent ? parseFloat(hoursSpent) : null,
-        status: status || 'TODO',
+        status: status || 'IN_PROGRESS', // Employee's own work starts as IN_PROGRESS
         date: workLogDate,
       },
     });
@@ -67,6 +69,16 @@ export const getMyWorkLogs = async (req: AuthRequest, res: Response) => {
 
     const workLogs = await prisma.workLog.findMany({
       where,
+      include: {
+        assignedBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            position: true,
+          },
+        },
+      },
       orderBy: { date: 'desc' },
       take: parseInt(limit as string),
     });

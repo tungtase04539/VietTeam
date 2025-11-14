@@ -13,6 +13,7 @@ datasource db {
 
 enum Role {
   ADMIN
+  MANAGER
   EMPLOYEE
 }
 
@@ -40,12 +41,29 @@ model Employee {
   department  String
   salary      Float?
   hireDate    DateTime     @default(now())
+  teamId      String?
+  team        Team?        @relation("TeamMembers", fields: [teamId], references: [id], onDelete: SetNull)
+  managedTeam Team?        @relation("TeamManager")
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   attendances Attendance[]
-  workLogs    WorkLog[]
+  workLogs    WorkLog[]    @relation("EmployeeWorkLogs")
+  assignedWorkLogs WorkLog[] @relation("AssignedWorkLogs")
 
   @@map("employees")
+}
+
+model Team {
+  id          String     @id @default(uuid())
+  name        String
+  description String?
+  managerId   String?    @unique
+  manager     Employee?  @relation("TeamManager", fields: [managerId], references: [id], onDelete: SetNull)
+  members     Employee[] @relation("TeamMembers")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@map("teams")
 }
 
 enum AttendanceStatus {
@@ -81,16 +99,18 @@ enum WorkLogStatus {
 }
 
 model WorkLog {
-  id          String        @id @default(uuid())
-  employeeId  String
-  employee    Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  date        DateTime      @default(now())
-  title       String
-  description String?
-  hoursSpent  Float?
-  status      WorkLogStatus @default(TODO)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id           String        @id @default(uuid())
+  employeeId   String
+  employee     Employee      @relation("EmployeeWorkLogs", fields: [employeeId], references: [id], onDelete: Cascade)
+  assignedById String?
+  assignedBy   Employee?     @relation("AssignedWorkLogs", fields: [assignedById], references: [id], onDelete: SetNull)
+  date         DateTime      @default(now())
+  title        String
+  description  String?
+  hoursSpent   Float?
+  status       WorkLogStatus @default(TODO)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
   @@map("work_logs")
 }

@@ -177,3 +177,49 @@ export const deleteEmployee = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ message: 'Lỗi server' });
   }
 };
+
+// Update employee role (Admin only)
+export const updateEmployeeRole = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+
+    if (!['ADMIN', 'MANAGER', 'EMPLOYEE'].includes(role)) {
+      return res.status(400).json({ message: 'Vai trò không hợp lệ' });
+    }
+
+    const employee = await prisma.employee.findUnique({
+      where: { id },
+      include: { user: true },
+    });
+
+    if (!employee) {
+      return res.status(404).json({ message: 'Không tìm thấy nhân viên' });
+    }
+
+    // Update user role
+    const updatedUser = await prisma.user.update({
+      where: { id: employee.userId },
+      data: { role },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            position: true,
+            department: true,
+          },
+        },
+      },
+    });
+
+    res.json({
+      message: `Đã cập nhật vai trò thành ${role === 'ADMIN' ? 'Quản trị viên' : role === 'MANAGER' ? 'Quản lý' : 'Nhân viên'}`,
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error('Update employee role error:', error);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+};

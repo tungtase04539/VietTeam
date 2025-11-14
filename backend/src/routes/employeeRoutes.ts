@@ -5,6 +5,7 @@ import {
   getEmployeeById,
   updateEmployee,
   deleteEmployee,
+  updateEmployeeRole,
 } from '../controllers/employeeController';
 import { authenticate, authorize } from '../middleware/auth';
 
@@ -24,6 +25,9 @@ router.get('/:id', getEmployeeById);
 
 // UPDATE employee - chỉ admin
 router.put('/:id', authorize('ADMIN'), updateEmployee);
+
+// UPDATE employee role - chỉ admin
+router.patch('/:id/role', authorize('ADMIN'), updateEmployeeRole);
 
 // DELETE employee - chỉ admin
 router.delete('/:id', authorize('ADMIN'), deleteEmployee);
