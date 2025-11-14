@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { attendanceAPI, workLogAPI } from '../services/api';
 import {
   Attendance,
@@ -14,6 +15,7 @@ import {
 
 const EmployeeDashboard: React.FC = () => {
   const { user, logout } = useAuth();
+  const { showSuccess, showError } = useToast();
   const employee = user?.employee;
 
   // Attendance state
@@ -96,9 +98,9 @@ const EmployeeDashboard: React.FC = () => {
       const response = await attendanceAPI.checkIn();
       setTodayAttendance(response.data.attendance);
       await loadTodayAttendance(); // Reload to get all sessions
-      alert('Bắt đầu làm việc thành công!');
+      showSuccess('Bắt đầu làm việc thành công!');
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Lỗi khi bắt đầu làm việc');
+      showError(error.response?.data?.message || 'Lỗi khi bắt đầu làm việc');
     } finally {
       setAttendanceLoading(false);
     }
@@ -132,15 +134,15 @@ ${warning.timeSinceLastUpdate ? `• Thời gian không hoạt động: ${warnin
 💡 Để được tính đầy đủ thời gian, hãy cập nhật work log trong vòng 10 phút trước khi kết thúc làm việc.
         `.trim();
 
-        alert(warningMessage);
+        showError(warningMessage);
       } else {
-        alert('Kết thúc làm việc thành công!');
+        showSuccess('Kết thúc làm việc thành công!');
       }
 
       await loadTodayAttendance(); // Reload to get all sessions
       loadAttendanceStats(); // Reload stats
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Lỗi khi kết thúc làm việc');
+      showError(error.response?.data?.message || 'Lỗi khi kết thúc làm việc');
     } finally {
       setAttendanceLoading(false);
     }
@@ -167,7 +169,7 @@ ${warning.timeSinceLastUpdate ? `• Thời gian không hoạt động: ${warnin
 
       form.reset();
       setShowAddModal(false);
-      alert('Đã thêm công việc!');
+      showSuccess('Đã thêm công việc!');
 
       // Load lại work logs sau khi đóng modal
       try {
@@ -175,12 +177,12 @@ ${warning.timeSinceLastUpdate ? `• Thời gian không hoạt động: ${warnin
         console.log('Work logs reloaded successfully');
       } catch (reloadError) {
         console.error('Error reloading work logs:', reloadError);
-        alert('Đã thêm công việc nhưng không thể tải lại danh sách. Vui lòng refresh trang.');
+        showError('Đã thêm công việc nhưng không thể tải lại danh sách. Vui lòng refresh trang.');
       }
     } catch (error: any) {
       console.error('Add work log error:', error);
       console.error('Full error object:', JSON.stringify(error, null, 2));
-      alert(error.response?.data?.message || 'Lỗi khi thêm công việc');
+      showError(error.response?.data?.message || 'Lỗi khi thêm công việc');
     } finally {
       setWorkLogLoading(false);
     }
@@ -190,8 +192,9 @@ ${warning.timeSinceLastUpdate ? `• Thời gian không hoạt động: ${warnin
     try {
       await workLogAPI.update(id, { status });
       loadWorkLogs();
+      showSuccess('Cập nhật trạng thái thành công!');
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Lỗi khi cập nhật');
+      showError(error.response?.data?.message || 'Lỗi khi cập nhật');
     }
   };
 
@@ -200,8 +203,9 @@ ${warning.timeSinceLastUpdate ? `• Thời gian không hoạt động: ${warnin
     try {
       await workLogAPI.delete(id);
       loadWorkLogs();
+      showSuccess('Xóa công việc thành công!');
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Lỗi khi xóa');
+      showError(error.response?.data?.message || 'Lỗi khi xóa');
     }
   };
 

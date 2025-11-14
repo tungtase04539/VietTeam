@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { teamAPI, workLogAPI, authAPI } from '../services/api';
 import { Team, WorkLog, User } from '../types';
+import { useToast } from '../context/ToastContext';
 
 export default function ManagerDashboard() {
   const navigate = useNavigate();
+  const { showSuccess, showError } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [team, setTeam] = useState<Team | null>(null);
   const [teamWorkLogs, setTeamWorkLogs] = useState<WorkLog[]>([]);
@@ -77,11 +79,11 @@ export default function ManagerDashboard() {
 
       form.reset();
       setShowAssignWorkModal(false);
-      alert('Giao việc thành công!');
+      showSuccess('Giao việc thành công!');
       await loadTeamWorkLogs();
     } catch (error: any) {
       console.error('Assign work error:', error);
-      alert(error.response?.data?.message || 'Lỗi khi giao việc');
+      showError(error.response?.data?.message || 'Lỗi khi giao việc');
     }
   };
 

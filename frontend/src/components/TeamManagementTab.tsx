@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { teamAPI, employeeAPI } from '../services/api';
 import { Team, Employee } from '../types';
+import { useToast } from '../context/ToastContext';
 
 export default function TeamManagementTab() {
+  const { showSuccess, showError } = useToast();
   const [teams, setTeams] = useState<Team[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,10 +45,10 @@ export default function TeamManagementTab() {
       });
 
       setShowCreateModal(false);
-      alert('Tạo nhóm thành công!');
+      showSuccess('Tạo nhóm thành công!');
       await loadData();
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Lỗi khi tạo nhóm');
+      showError(error.response?.data?.message || 'Lỗi khi tạo nhóm');
     }
   };
 
@@ -65,10 +67,10 @@ export default function TeamManagementTab() {
 
       setShowEditModal(false);
       setSelectedTeam(null);
-      alert('Cập nhật nhóm thành công!');
+      showSuccess('Cập nhật nhóm thành công!');
       await loadData();
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Lỗi khi cập nhật nhóm');
+      showError(error.response?.data?.message || 'Lỗi khi cập nhật nhóm');
     }
   };
 
@@ -77,10 +79,10 @@ export default function TeamManagementTab() {
 
     try {
       await teamAPI.delete(teamId);
-      alert('Xóa nhóm thành công!');
+      showSuccess('Xóa nhóm thành công!');
       await loadData();
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Lỗi khi xóa nhóm');
+      showError(error.response?.data?.message || 'Lỗi khi xóa nhóm');
     }
   };
 
@@ -95,10 +97,10 @@ export default function TeamManagementTab() {
       await teamAPI.addMember(selectedTeam.id, employeeId);
       setShowAddMemberModal(false);
       setSelectedTeam(null);
-      alert('Thêm thành viên thành công!');
+      showSuccess('Thêm thành viên thành công!');
       await loadData();
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Lỗi khi thêm thành viên');
+      showError(error.response?.data?.message || 'Lỗi khi thêm thành viên');
     }
   };
 
@@ -107,10 +109,10 @@ export default function TeamManagementTab() {
 
     try {
       await teamAPI.removeMember(employeeId);
-      alert('Xóa thành viên thành công!');
+      showSuccess('Xóa thành viên thành công!');
       await loadData();
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Lỗi khi xóa thành viên');
+      showError(error.response?.data?.message || 'Lỗi khi xóa thành viên');
     }
   };
 
@@ -133,10 +135,10 @@ export default function TeamManagementTab() {
 
     try {
       await employeeAPI.updateRole(employeeId, { role: selectedRole as any });
-      alert(`Đã cập nhật vai trò thành ${roleLabels[selectedRole as keyof typeof roleLabels]}!`);
+      showSuccess(`Đã cập nhật vai trò thành ${roleLabels[selectedRole as keyof typeof roleLabels]}!`);
       await loadData();
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Lỗi khi cập nhật vai trò');
+      showError(error.response?.data?.message || 'Lỗi khi cập nhật vai trò');
     }
   };
 
