@@ -29,6 +29,11 @@ model User {
   @@map("users")
 }
 
+enum SalaryType {
+  HOURLY
+  MONTHLY
+}
+
 model Employee {
   id          String       @id @default(uuid())
   userId      String       @unique
@@ -40,6 +45,8 @@ model Employee {
   position    String
   department  String
   salary      Float?
+  salaryType  SalaryType   @default(MONTHLY)
+  hourlyRate  Float?
   hireDate    DateTime     @default(now())
   teamId      String?
   team        Team?        @relation("TeamMembers", fields: [teamId], references: [id], onDelete: SetNull)

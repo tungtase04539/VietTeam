@@ -177,4 +177,12 @@ export const rankingAPI = {
     api.get<any>('/rankings/team', { params }),
 };
 
+// Payment API
+export const paymentAPI = {
+  calculate: (params?: { startDate?: string; endDate?: string; employeeId?: string }) =>
+    api.get<any>('/payments/calculate', { params }),
+  getMyEarnings: (params?: { startDate?: string; endDate?: string }) =>
+    api.get<any>('/payments/my-earnings', { params }),
+};
+
 export default api;

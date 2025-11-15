@@ -5,6 +5,8 @@ export interface User {
   employee?: Employee;
 }
 
+export type SalaryType = 'HOURLY' | 'MONTHLY';
+
 export interface Employee {
   id: string;
   userId: string;
@@ -15,6 +17,8 @@ export interface Employee {
   position: string;
   department: string;
   salary?: number;
+  salaryType?: SalaryType;
+  hourlyRate?: number;
   hireDate: string;
   createdAt: string;
   updatedAt: string;

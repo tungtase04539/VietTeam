@@ -14,7 +14,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import AlertDialog from '../components/AlertDialog';
 import PromptDialog from '../components/PromptDialog';
 
-type TabType = 'employees' | 'attendance' | 'worklogs' | 'teams' | 'rankings';
+type TabType = 'employees' | 'attendance' | 'worklogs' | 'teams' | 'rankings' | 'payments';
 
 const AdminDashboard: React.FC = () => {
   const { user, logout } = useAuth();
