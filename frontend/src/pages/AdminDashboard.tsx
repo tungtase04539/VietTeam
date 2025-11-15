@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useToast } from '../context/ToastContext';
 import { employeeAPI, attendanceAPI, workLogAPI } from '../services/api';
 import {
   Employee,
@@ -18,7 +17,6 @@ type TabType = 'employees' | 'attendance' | 'worklogs' | 'teams';
 
 const AdminDashboard: React.FC = () => {
   const { user, logout } = useAuth();
-  const { showSuccess, showError } = useToast();
   const [activeTab, setActiveTab] = useState<TabType>('employees');
 
   // Employee state
