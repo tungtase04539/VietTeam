@@ -20,7 +20,6 @@ const VideoUpload: React.FC<VideoUploadProps> = ({
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -64,7 +63,6 @@ const VideoUpload: React.FC<VideoUploadProps> = ({
         fileName: pendingFile.name,
       });
 
-      setIsAuthenticated(true);
       setPendingFile(null);
       setUploading(false);
       setProgress(100);
