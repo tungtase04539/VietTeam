@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { teamAPI, employeeAPI } from '../services/api';
 import { Team, Employee } from '../types';
 import { useToast } from '../context/ToastContext';
+import ConfirmDialog from './ConfirmDialog';
+import RoleSelectDialog from './RoleSelectDialog';
 
 export default function TeamManagementTab() {
   const { showSuccess, showError } = useToast();
@@ -12,6 +14,21 @@ export default function TeamManagementTab() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+
+  // Dialog states
+  const [deleteTeamDialog, setDeleteTeamDialog] = useState<{ isOpen: boolean; teamId: string | null }>({
+    isOpen: false,
+    teamId: null,
+  });
+  const [removeMemberDialog, setRemoveMemberDialog] = useState<{ isOpen: boolean; employeeId: string | null }>({
+    isOpen: false,
+    employeeId: null,
+  });
+  const [rolePromptDialog, setRolePromptDialog] = useState<{
+    isOpen: boolean;
+    employeeId: string | null;
+    currentRole: string;
+  }>({ isOpen: false, employeeId: null, currentRole: '' });
 
   useEffect(() => {
     loadData();
@@ -74,14 +91,20 @@ export default function TeamManagementTab() {
     }
   };
 
-  const handleDeleteTeam = async (teamId: string) => {
-    if (!confirm('Bạn có chắc muốn xóa nhóm này?')) return;
+  const handleDeleteTeam = (teamId: string) => {
+    setDeleteTeamDialog({ isOpen: true, teamId });
+  };
+
+  const confirmDeleteTeam = async () => {
+    if (!deleteTeamDialog.teamId) return;
 
     try {
-      await teamAPI.delete(teamId);
+      await teamAPI.delete(deleteTeamDialog.teamId);
+      setDeleteTeamDialog({ isOpen: false, teamId: null });
       showSuccess('Xóa nhóm thành công!');
       await loadData();
     } catch (error: any) {
+      setDeleteTeamDialog({ isOpen: false, teamId: null });
       showError(error.response?.data?.message || 'Lỗi khi xóa nhóm');
     }
   };
@@ -104,40 +127,44 @@ export default function TeamManagementTab() {
     }
   };
 
-  const handleRemoveMember = async (employeeId: string) => {
-    if (!confirm('Bạn có chắc muốn xóa thành viên này khỏi nhóm?')) return;
+  const handleRemoveMember = (employeeId: string) => {
+    setRemoveMemberDialog({ isOpen: true, employeeId });
+  };
+
+  const confirmRemoveMember = async () => {
+    if (!removeMemberDialog.employeeId) return;
 
     try {
-      await teamAPI.removeMember(employeeId);
+      await teamAPI.removeMember(removeMemberDialog.employeeId);
+      setRemoveMemberDialog({ isOpen: false, employeeId: null });
       showSuccess('Xóa thành viên thành công!');
       await loadData();
     } catch (error: any) {
+      setRemoveMemberDialog({ isOpen: false, employeeId: null });
       showError(error.response?.data?.message || 'Lỗi khi xóa thành viên');
     }
   };
 
-  const handleChangeRole = async (employeeId: string, currentRole: string) => {
-    const roles = ['EMPLOYEE', 'MANAGER', 'ADMIN'];
+  const handleChangeRole = (employeeId: string, currentRole: string) => {
+    setRolePromptDialog({ isOpen: true, employeeId, currentRole });
+  };
+
+  const confirmChangeRole = async (newRole: string) => {
+    if (!rolePromptDialog.employeeId) return;
+
     const roleLabels = {
       EMPLOYEE: 'Nhân viên',
       MANAGER: 'Quản lý',
       ADMIN: 'Quản trị viên',
     };
 
-    const newRole = prompt(
-      `Chọn vai trò mới:\n1. ${roleLabels.EMPLOYEE}\n2. ${roleLabels.MANAGER}\n3. ${roleLabels.ADMIN}\n\nNhập số (1-3):`,
-      currentRole === 'EMPLOYEE' ? '1' : currentRole === 'MANAGER' ? '2' : '3'
-    );
-
-    if (!newRole || !['1', '2', '3'].includes(newRole)) return;
-
-    const selectedRole = roles[parseInt(newRole) - 1];
-
     try {
-      await employeeAPI.updateRole(employeeId, { role: selectedRole as any });
-      showSuccess(`Đã cập nhật vai trò thành ${roleLabels[selectedRole as keyof typeof roleLabels]}!`);
+      await employeeAPI.updateRole(rolePromptDialog.employeeId, { role: newRole as any });
+      setRolePromptDialog({ isOpen: false, employeeId: null, currentRole: '' });
+      showSuccess(`Đã cập nhật vai trò thành ${roleLabels[newRole as keyof typeof roleLabels]}!`);
       await loadData();
     } catch (error: any) {
+      setRolePromptDialog({ isOpen: false, employeeId: null, currentRole: '' });
       showError(error.response?.data?.message || 'Lỗi khi cập nhật vai trò');
     }
   };
@@ -459,6 +486,38 @@ export default function TeamManagementTab() {
           </div>
         </div>
       )}
+
+      {/* Delete Team Confirmation */}
+      <ConfirmDialog
+        isOpen={deleteTeamDialog.isOpen}
+        title="Xóa nhóm"
+        message="Bạn có chắc muốn xóa nhóm này?\n\nCác thành viên sẽ không còn thuộc nhóm nào.\nThao tác này không thể hoàn tác."
+        confirmText="Xóa nhóm"
+        cancelText="Hủy"
+        confirmButtonClass="bg-red-600 hover:bg-red-700"
+        onConfirm={confirmDeleteTeam}
+        onCancel={() => setDeleteTeamDialog({ isOpen: false, teamId: null })}
+      />
+
+      {/* Remove Member Confirmation */}
+      <ConfirmDialog
+        isOpen={removeMemberDialog.isOpen}
+        title="Xóa thành viên khỏi nhóm"
+        message="Bạn có chắc muốn xóa thành viên này khỏi nhóm?\n\nNhân viên sẽ không còn thuộc nhóm nào."
+        confirmText="Xóa"
+        cancelText="Hủy"
+        confirmButtonClass="bg-red-600 hover:bg-red-700"
+        onConfirm={confirmRemoveMember}
+        onCancel={() => setRemoveMemberDialog({ isOpen: false, employeeId: null })}
+      />
+
+      {/* Role Selection Dialog */}
+      <RoleSelectDialog
+        isOpen={rolePromptDialog.isOpen}
+        currentRole={rolePromptDialog.currentRole}
+        onConfirm={confirmChangeRole}
+        onCancel={() => setRolePromptDialog({ isOpen: false, employeeId: null, currentRole: '' })}
+      />
     </div>
   );
 }

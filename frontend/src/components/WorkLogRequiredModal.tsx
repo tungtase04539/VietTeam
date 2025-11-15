@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CreateWorkLogData, WorkLogStatus, WorkLog } from '../types';
+import ConfirmDialog from './ConfirmDialog';
 
 interface WorkLogRequiredModalProps {
   isOpen: boolean;
@@ -27,6 +28,7 @@ const WorkLogRequiredModal: React.FC<WorkLogRequiredModalProps> = ({
   details,
 }) => {
   const [loading, setLoading] = useState(false);
+  const [showForceCheckoutConfirm, setShowForceCheckoutConfirm] = useState(false);
 
   if (!isOpen) return null;
 
@@ -66,9 +68,12 @@ const WorkLogRequiredModal: React.FC<WorkLogRequiredModalProps> = ({
   };
 
   const handleForceCheckout = () => {
-    if (confirm('Bạn có chắc muốn check-out mà không cập nhật công việc? Thời gian làm việc sẽ bị giảm!')) {
-      onForceCheckout();
-    }
+    setShowForceCheckoutConfirm(true);
+  };
+
+  const confirmForceCheckout = () => {
+    setShowForceCheckoutConfirm(false);
+    onForceCheckout();
   };
 
   return (
@@ -283,6 +288,18 @@ const WorkLogRequiredModal: React.FC<WorkLogRequiredModalProps> = ({
           </div>
         </form>
       </div>
+
+      {/* Force Checkout Confirmation */}
+      <ConfirmDialog
+        isOpen={showForceCheckoutConfirm}
+        title="⚠️ Xác nhận bỏ qua"
+        message={`Bạn có chắc muốn check-out mà không cập nhật công việc?\n\nBạn sẽ mất ${formatHours(details.potentialWorkHours - details.reducedWorkHours)} không được tính vào thời gian làm việc!`}
+        confirmText="Vẫn check-out"
+        cancelText="Hủy"
+        confirmButtonClass="bg-red-600 hover:bg-red-700"
+        onConfirm={confirmForceCheckout}
+        onCancel={() => setShowForceCheckoutConfirm(false)}
+      />
     </div>
   );
 };

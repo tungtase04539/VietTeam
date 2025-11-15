@@ -10,6 +10,9 @@ import {
   AttendanceSummary,
 } from '../types';
 import TeamManagementTab from '../components/TeamManagementTab';
+import ConfirmDialog from '../components/ConfirmDialog';
+import AlertDialog from '../components/AlertDialog';
+import PromptDialog from '../components/PromptDialog';
 
 type TabType = 'employees' | 'attendance' | 'worklogs' | 'teams';
 
@@ -57,6 +60,29 @@ const AdminDashboard: React.FC = () => {
     employeeId: '',
   });
   const [workLogStats, setWorkLogStats] = useState<any>(null);
+
+  // Dialog states
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+  
+  const [alertDialog, setAlertDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'info' | 'warning';
+  }>({ isOpen: false, title: '', message: '', type: 'info' });
+  
+  const [promptDialog, setPromptDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    placeholder: string;
+    onConfirm: (value: string) => void;
+  }>({ isOpen: false, title: '', message: '', placeholder: '', onConfirm: () => {} });
 
   useEffect(() => {
     fetchEmployees();
@@ -140,75 +166,144 @@ const AdminDashboard: React.FC = () => {
         salary: undefined,
         role: 'EMPLOYEE',
       });
-      alert('Thêm nhân viên thành công');
+      setAlertDialog({
+        isOpen: true,
+        title: 'Thành công',
+        message: 'Thêm nhân viên thành công!',
+        type: 'success',
+      });
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Không thể thêm nhân viên');
+      setAlertDialog({
+        isOpen: true,
+        title: 'Lỗi',
+        message: err.response?.data?.message || 'Không thể thêm nhân viên',
+        type: 'error',
+      });
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Bạn có chắc muốn xóa nhân viên này?')) {
-      return;
-    }
-
-    try {
-      await employeeAPI.delete(id);
-      setEmployees(employees.filter((emp) => emp.id !== id));
-      alert('Xóa nhân viên thành công');
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Không thể xóa nhân viên');
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Xác nhận xóa',
+      message: 'Bạn có chắc muốn xóa nhân viên này?\n\nThao tác này không thể hoàn tác.',
+      onConfirm: async () => {
+        try {
+          await employeeAPI.delete(id);
+          setEmployees(employees.filter((emp) => emp.id !== id));
+          setConfirmDialog({ ...confirmDialog, isOpen: false });
+          setAlertDialog({
+            isOpen: true,
+            title: 'Thành công',
+            message: 'Xóa nhân viên thành công!',
+            type: 'success',
+          });
+        } catch (err: any) {
+          setConfirmDialog({ ...confirmDialog, isOpen: false });
+          setAlertDialog({
+            isOpen: true,
+            title: 'Lỗi',
+            message: err.response?.data?.message || 'Không thể xóa nhân viên',
+            type: 'error',
+          });
+        }
+      },
+    });
   };
 
-  const handleResetAll = async () => {
-    const confirmText = prompt(
-      'CẢNH BÁO: Thao tác này sẽ XÓA TẤT CẢ nhân viên, nhóm, chấm công, công việc!\n\n' +
-      'Gõ "XAC NHAN" (viết hoa, không dấu) để tiếp tục:'
-    );
+  const handleResetAll = () => {
+    setPromptDialog({
+      isOpen: true,
+      title: '⚠️ CẢNH BÁO NGUY HIỂM',
+      message: 
+        'Thao tác này sẽ XÓA TẤT CẢ:\n' +
+        '• Tất cả nhân viên (trừ Admin)\n' +
+        '• Tất cả nhóm\n' +
+        '• Tất cả chấm công\n' +
+        '• Tất cả công việc\n\n' +
+        '⚠️ KHÔNG THỂ HOÀN TÁC!\n\n' +
+        'Gõ chính xác "XAC NHAN" (viết hoa, không dấu) để tiếp tục:',
+      placeholder: 'XAC NHAN',
+      onConfirm: async (value: string) => {
+        setPromptDialog({ ...promptDialog, isOpen: false });
+        
+        if (value !== 'XAC NHAN') {
+          setAlertDialog({
+            isOpen: true,
+            title: 'Đã hủy',
+            message: 'Đã hủy thao tác reset',
+            type: 'info',
+          });
+          return;
+        }
 
-    if (confirmText !== 'XAC NHAN') {
-      showError('Đã hủy thao tác reset');
-      return;
-    }
-
-    try {
-      const response = await employeeAPI.resetAll();
-      showSuccess(response.data.message);
-      // Reload tất cả data
-      await Promise.all([
-        fetchEmployees(),
-        fetchAttendanceSummary(),
-        fetchAttendances(),
-        fetchWorkLogs(),
-        fetchWorkLogStats(),
-      ]);
-    } catch (err: any) {
-      showError(err.response?.data?.message || 'Lỗi khi reset dữ liệu');
-    }
+        try {
+          const response = await employeeAPI.resetAll();
+          setAlertDialog({
+            isOpen: true,
+            title: 'Thành công',
+            message: response.data.message,
+            type: 'success',
+          });
+          // Reload tất cả data
+          await Promise.all([
+            fetchEmployees(),
+            fetchAttendanceSummary(),
+            fetchAttendances(),
+            fetchWorkLogs(),
+            fetchWorkLogStats(),
+          ]);
+        } catch (err: any) {
+          setAlertDialog({
+            isOpen: true,
+            title: 'Lỗi',
+            message: err.response?.data?.message || 'Lỗi khi reset dữ liệu',
+            type: 'error',
+          });
+        }
+      },
+    });
   };
 
-  const handleCreateDemo = async () => {
-    if (!window.confirm('Tạo 5 tài khoản demo với email demo1-5@vietteam.com và mật khẩu 123456?')) {
-      return;
-    }
-
-    try {
-      const response = await employeeAPI.createDemo();
-      showSuccess(response.data.message);
-      
-      // Show credentials info
-      const accountsList = response.data.credentials.accounts.join('\n');
-      alert(
-        `Đã tạo thành công!\n\n` +
-        `Tài khoản:\n${accountsList}\n\n` +
-        `Mật khẩu: ${response.data.credentials.password}`
-      );
-      
-      // Reload employees
-      await fetchEmployees();
-    } catch (err: any) {
-      showError(err.response?.data?.message || 'Lỗi khi tạo demo accounts');
-    }
+  const handleCreateDemo = () => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Tạo tài khoản demo',
+      message: 
+        'Tạo 5 tài khoản nhân viên demo:\n\n' +
+        '📧 Email: demo1@vietteam.com đến demo5@vietteam.com\n' +
+        '🔑 Mật khẩu: 123456\n\n' +
+        'Bạn có muốn tiếp tục?',
+      onConfirm: async () => {
+        setConfirmDialog({ ...confirmDialog, isOpen: false });
+        
+        try {
+          const response = await employeeAPI.createDemo();
+          
+          // Show credentials info
+          const accountsList = response.data.credentials.accounts.join('\n');
+          setAlertDialog({
+            isOpen: true,
+            title: '✅ Đã tạo thành công!',
+            message: 
+              `Tài khoản:\n${accountsList}\n\n` +
+              `Mật khẩu: ${response.data.credentials.password}\n\n` +
+              `Bạn có thể sử dụng các tài khoản này để đăng nhập ngay!`,
+            type: 'success',
+          });
+          
+          // Reload employees
+          await fetchEmployees();
+        } catch (err: any) {
+          setAlertDialog({
+            isOpen: true,
+            title: 'Lỗi',
+            message: err.response?.data?.message || 'Lỗi khi tạo demo accounts',
+            type: 'error',
+          });
+        }
+      },
+    });
   };
 
   const handleEdit = (employee: Employee) => {
@@ -238,9 +333,19 @@ const AdminDashboard: React.FC = () => {
       );
       setShowEditModal(false);
       setEditingEmployee(null);
-      alert('Cập nhật nhân viên thành công');
+      setAlertDialog({
+        isOpen: true,
+        title: 'Thành công',
+        message: 'Cập nhật nhân viên thành công!',
+        type: 'success',
+      });
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Không thể cập nhật nhân viên');
+      setAlertDialog({
+        isOpen: true,
+        title: 'Lỗi',
+        message: err.response?.data?.message || 'Không thể cập nhật nhân viên',
+        type: 'error',
+      });
     }
   };
 
@@ -1358,6 +1463,32 @@ const AdminDashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Modern Dialog Modals */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+      />
+
+      <AlertDialog
+        isOpen={alertDialog.isOpen}
+        title={alertDialog.title}
+        message={alertDialog.message}
+        type={alertDialog.type}
+        onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })}
+      />
+
+      <PromptDialog
+        isOpen={promptDialog.isOpen}
+        title={promptDialog.title}
+        message={promptDialog.message}
+        placeholder={promptDialog.placeholder}
+        onConfirm={promptDialog.onConfirm}
+        onCancel={() => setPromptDialog({ ...promptDialog, isOpen: false })}
+      />
     </div>
   );
 };
