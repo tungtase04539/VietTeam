@@ -130,7 +130,15 @@ const TeamVideosTab: React.FC = () => {
           <svg className="w-20 h-20 text-slate-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
           </svg>
-          <p className="text-slate-500 text-lg">Chưa có video nào trong khoảng thời gian này</p>
+          <p className="text-slate-500 text-lg mb-2">Chưa có video nào trong khoảng thời gian này</p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4 max-w-md mx-auto">
+            <p className="text-sm text-blue-800">
+              💡 <strong>Để có video hiển thị:</strong>
+              <br />• Nhân viên cần upload video khi thêm/cập nhật công việc
+              <br />• Video sẽ tự động xuất hiện ở đây
+              <br />• Có thể đã chạy migration database chưa?
+            </p>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
