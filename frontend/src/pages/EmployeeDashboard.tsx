@@ -34,6 +34,11 @@ const EmployeeDashboard: React.FC = () => {
   // Attendance stats
   const [attendanceStats, setAttendanceStats] = useState<AttendanceStatistics | null>(null);
 
+  // 30-minute warning modal state
+  const [showWarningModal, setShowWarningModal] = useState(false);
+  const [actualWorkHours, setActualWorkHours] = useState<number>(0);
+  const [checkOutTime, setCheckOutTime] = useState<string | null>(null);
+
   // Load today's attendance
   useEffect(() => {
     loadTodayAttendance();
@@ -53,6 +58,38 @@ const EmployeeDashboard: React.FC = () => {
       return () => clearInterval(interval);
     }
   }, [todayAttendance]);
+
+  // Check 30-minute warning after checkout
+  useEffect(() => {
+    const checkWarning = () => {
+      const lastCheckOut = localStorage.getItem('lastCheckOutTime');
+      const lastCheckIn = localStorage.getItem('lastCheckInTime');
+
+      if (!lastCheckOut || !lastCheckIn) return;
+
+      const now = new Date();
+      const checkOutDate = new Date(lastCheckOut);
+      const checkInDate = new Date(lastCheckIn);
+      const minutesSinceCheckout = (now.getTime() - checkOutDate.getTime()) / (1000 * 60);
+
+      // Nếu đã qua 30 phút kể từ lúc checkout
+      if (minutesSinceCheckout >= 30 && !showWarningModal) {
+        // Tính thời gian thực đã làm (từ check-in đến check-out)
+        const actualHours = (checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60);
+        setActualWorkHours(actualHours);
+        setCheckOutTime(lastCheckOut);
+        setShowWarningModal(true);
+      }
+    };
+
+    // Check mỗi phút
+    const interval = setInterval(checkWarning, 60000);
+
+    // Check ngay lập tức khi component mount
+    checkWarning();
+
+    return () => clearInterval(interval);
+  }, [showWarningModal]);
 
   const loadTodayAttendance = async () => {
     try {
@@ -114,6 +151,12 @@ const EmployeeDashboard: React.FC = () => {
       setTodayAttendance(data.attendance);
       setCurrentHours(0);
 
+      // Lưu thời gian checkout và thời gian thực làm việc vào localStorage để check sau 30 phút
+      const checkOutTimestamp = new Date().toISOString();
+      localStorage.setItem('lastCheckOutTime', checkOutTimestamp);
+      localStorage.setItem('lastCheckInTime', todayAttendance?.checkInTime || '');
+      setCheckOutTime(checkOutTimestamp);
+
       // Kiểm tra warning từ backend
       if (data.warning) {
         const warning = data.warning;
@@ -169,6 +212,12 @@ ${warning.timeSinceLastUpdate ? `• Thời gian không hoạt động: ${warnin
 
       form.reset();
       setShowAddModal(false);
+      setShowWarningModal(false); // Đóng warning modal nếu đang mở
+
+      // Clear localStorage tracking vì đã update work log
+      localStorage.removeItem('lastCheckOutTime');
+      localStorage.removeItem('lastCheckInTime');
+
       showSuccess('Đã thêm công việc!');
 
       // Load lại work logs sau khi đóng modal
@@ -191,6 +240,11 @@ ${warning.timeSinceLastUpdate ? `• Thời gian không hoạt động: ${warnin
   const handleUpdateWorkLogStatus = async (id: string, status: WorkLogStatus) => {
     try {
       await workLogAPI.update(id, { status });
+
+      // Clear localStorage tracking vì đã update work log
+      localStorage.removeItem('lastCheckOutTime');
+      localStorage.removeItem('lastCheckInTime');
+
       loadWorkLogs();
       showSuccess('Cập nhật trạng thái thành công!');
     } catch (error: any) {
@@ -769,6 +823,157 @@ ${warning.timeSinceLastUpdate ? `• Thời gian không hoạt động: ${warnin
                   className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"
                 >
                   {workLogLoading ? 'Đang thêm...' : 'Thêm'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 30-Minute Warning Modal */}
+      {showWarningModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border-4 border-red-500">
+            {/* Red Warning Header */}
+            <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-6 text-white">
+              <div className="flex items-center gap-4 mb-3">
+                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center animate-pulse">
+                  <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-2xl font-bold mb-1">⚠️ CẢNH BÁO QUAN TRỌNG</h3>
+                  <p className="text-red-100 text-sm">Bạn đã kết thúc làm việc hơn 30 phút mà chưa cập nhật công việc!</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Warning Content */}
+            <div className="px-6 py-6 bg-red-50 border-b-2 border-red-200">
+              <div className="space-y-4">
+                <div className="bg-white border-l-4 border-red-500 p-4 rounded-r-lg shadow-sm">
+                  <h4 className="font-bold text-red-900 mb-2 text-lg">📊 Thông tin thời gian làm việc:</h4>
+                  <div className="space-y-2 text-sm">
+                    <p className="text-slate-700">
+                      <span className="font-semibold">⏰ Thời gian check-out:</span>{' '}
+                      <span className="text-red-600 font-bold">
+                        {checkOutTime ? new Date(checkOutTime).toLocaleString('vi-VN') : 'N/A'}
+                      </span>
+                    </p>
+                    <p className="text-slate-700">
+                      <span className="font-semibold">⏱️ Thời gian thực đã làm:</span>{' '}
+                      <span className="text-emerald-600 font-bold text-lg">
+                        {formatHours(actualWorkHours)}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-red-100 border border-red-300 p-4 rounded-lg">
+                  <p className="text-red-900 font-semibold mb-2">⚠️ CẢNH BÁO:</p>
+                  <p className="text-red-800 text-sm leading-relaxed">
+                    Nếu bạn không cập nhật công việc ngay bây giờ, hệ thống sẽ chỉ tính{' '}
+                    <span className="font-bold underline">thời gian thực làm việc từ khi bắt đầu đến lúc cập nhật work log mới nhất</span>.
+                    Thời gian từ sau work log cuối cùng đến khi check-out sẽ không được tính!
+                  </p>
+                </div>
+
+                <div className="bg-yellow-50 border border-yellow-300 p-4 rounded-lg">
+                  <p className="text-yellow-900 font-semibold mb-2">💡 Hành động yêu cầu:</p>
+                  <p className="text-yellow-800 text-sm">
+                    Vui lòng điền thông tin công việc bạn đã làm trong khoảng thời gian{' '}
+                    <span className="font-bold">{formatHours(actualWorkHours)}</span> để được tính đầy đủ thời gian làm việc.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Work Log Form */}
+            <form onSubmit={handleAddWorkLog} className="p-6 space-y-4 bg-white">
+              <h4 className="font-bold text-slate-900 text-lg mb-4 pb-2 border-b-2 border-red-200">
+                📝 Điền công việc đã làm:
+              </h4>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Tiêu đề công việc <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="title"
+                  required
+                  className="w-full px-4 py-3 border-2 border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-lg"
+                  placeholder="Nhập tên công việc bạn đã làm..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Mô tả chi tiết <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  name="description"
+                  required
+                  rows={4}
+                  className="w-full px-4 py-3 border-2 border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  placeholder="Mô tả chi tiết công việc bạn đã thực hiện..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Số giờ đã làm <span className="text-slate-500 text-xs">(Mặc định: {formatHours(actualWorkHours)})</span>
+                </label>
+                <input
+                  type="number"
+                  name="hoursSpent"
+                  step="0.1"
+                  min="0"
+                  defaultValue={actualWorkHours.toFixed(2)}
+                  className="w-full px-4 py-3 border-2 border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-lg font-semibold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Trạng thái
+                </label>
+                <select
+                  name="status"
+                  className="w-full px-4 py-3 border-2 border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-lg"
+                  defaultValue="COMPLETED"
+                >
+                  <option value="TODO">Chưa làm</option>
+                  <option value="IN_PROGRESS">Đang làm</option>
+                  <option value="COMPLETED">Hoàn thành</option>
+                  <option value="BLOCKED">Bị chặn</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowWarningModal(false);
+                    localStorage.removeItem('lastCheckOutTime');
+                    localStorage.removeItem('lastCheckInTime');
+                  }}
+                  className="flex-1 px-6 py-3 border-2 border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-100 transition-colors"
+                >
+                  Bỏ qua (Rủi ro cao)
+                </button>
+                <button
+                  type="submit"
+                  disabled={workLogLoading}
+                  className="flex-1 px-6 py-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 shadow-lg text-lg"
+                >
+                  {workLogLoading ? 'Đang lưu...' : '✓ Cập nhật ngay'}
                 </button>
               </div>
             </form>
