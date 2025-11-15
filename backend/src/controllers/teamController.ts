@@ -594,3 +594,78 @@ export const getTeamWorkLogStats = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ message: 'Lỗi server' });
   }
 };
+
+// Get team work logs (Manager only)
+export const getTeamWorkLogs = async (req: AuthRequest, res: Response) => {
+  try {
+    const managerId = req.user?.employee?.id;
+    if (!managerId) {
+      return res.status(404).json({ message: 'Không tìm thấy thông tin nhân viên' });
+    }
+
+    // Verify manager has a team
+    const manager = await prisma.employee.findUnique({
+      where: { id: managerId },
+      include: { managedTeam: { include: { members: true } } },
+    });
+
+    if (!manager?.managedTeam) {
+      return res.status(403).json({ message: 'Bạn không quản lý nhóm nào' });
+    }
+
+    const { startDate, endDate, status } = req.query;
+
+    const teamMemberIds = manager.managedTeam.members.map((m) => m.id);
+
+    const where: any = {
+      employeeId: { in: teamMemberIds },
+    };
+
+    if (status) where.status = status as string;
+
+    if (startDate || endDate) {
+      where.date = {};
+      if (startDate) {
+        const start = new Date(startDate as string);
+        start.setHours(0, 0, 0, 0);
+        where.date.gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate as string);
+        end.setHours(23, 59, 59, 999);
+        where.date.lte = end;
+      }
+    }
+
+    const workLogs = await prisma.workLog.findMany({
+      where,
+      include: {
+        employee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            position: true,
+            department: true,
+          },
+        },
+        assignedBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: [
+        { date: 'desc' },
+        { createdAt: 'desc' },
+      ],
+    });
+
+    res.json({ workLogs });
+  } catch (error) {
+    console.error('Get team work logs error:', error);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+};

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { workLogAPI } from '../services/api';
+import { teamAPI } from '../services/api';
 import { WorkLog } from '../types';
 
 const TeamVideosTab: React.FC = () => {
@@ -20,7 +20,7 @@ const TeamVideosTab: React.FC = () => {
   const loadVideos = async () => {
     try {
       setLoading(true);
-      const response = await workLogAPI.getAll({
+      const response = await teamAPI.getWorkLogs({
         startDate: filter.startDate,
         endDate: filter.endDate,
         status: filter.status || undefined,

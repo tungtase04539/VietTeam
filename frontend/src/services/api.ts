@@ -167,6 +167,8 @@ export const teamAPI = {
   getAttendanceSummary: () => api.get<any>('/teams/attendance-summary'),
   getWorkLogStats: (params?: { startDate?: string; endDate?: string }) =>
     api.get<any>('/teams/worklog-stats', { params }),
+  getWorkLogs: (params?: { startDate?: string; endDate?: string; status?: string }) =>
+    api.get<{ workLogs: WorkLog[] }>('/teams/work-logs', { params }),
 };
 
 // Ranking API

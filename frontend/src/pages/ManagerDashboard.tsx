@@ -90,18 +90,12 @@ export default function ManagerDashboard() {
       const startDate = new Date(today);
       startDate.setDate(today.getDate() - 7); // Last 7 days
 
-      const res = await workLogAPI.getAll({
+      const res = await teamAPI.getWorkLogs({
         startDate: startDate.toISOString().split('T')[0],
         endDate: today.toISOString().split('T')[0],
       });
 
-      // Filter work logs for team members
-      const teamMemberIds = team?.members.map((m) => m.id) || [];
-      const filteredLogs = res.data.workLogs.filter((log) =>
-        teamMemberIds.includes(log.employeeId)
-      );
-
-      setTeamWorkLogs(filteredLogs);
+      setTeamWorkLogs(res.data.workLogs);
     } catch (error) {
       console.error('Load team work logs error:', error);
     }
