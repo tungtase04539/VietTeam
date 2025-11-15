@@ -172,14 +172,19 @@ const EmployeeDashboard: React.FC = () => {
       setWorkLogRequiredDetails(null);
     } catch (error: any) {
       // Xử lý trường hợp yêu cầu work log
+      console.log('Checkout error:', error);
+      console.log('Error response:', error.response);
+      console.log('Error data:', error.response?.data);
+      
       if (error.response?.status === 400 && error.response?.data?.requiresWorkLog) {
+        console.log('Showing WorkLog Required Modal with details:', error.response.data.details);
         setWorkLogRequiredDetails(error.response.data.details);
         setShowWorkLogRequiredModal(true);
+        // Không set loading về false ở đây để modal có thể hiển thị
       } else {
         showError(error.response?.data?.message || 'Lỗi khi kết thúc làm việc');
+        setAttendanceLoading(false);
       }
-    } finally {
-      setAttendanceLoading(false);
     }
   };
 
@@ -258,6 +263,7 @@ const EmployeeDashboard: React.FC = () => {
   // Handle work log submission from WorkLogRequiredModal
   const handleWorkLogRequiredSubmit = async (data: CreateWorkLogData) => {
     try {
+      console.log('Submitting work log from modal:', data);
       await workLogAPI.create(data);
       showSuccess('Đã thêm công việc!');
       
@@ -269,13 +275,22 @@ const EmployeeDashboard: React.FC = () => {
     } catch (error: any) {
       console.error('Add work log error:', error);
       showError(error.response?.data?.message || 'Lỗi khi thêm công việc');
+      setAttendanceLoading(false);
       throw error; // Re-throw to let modal know
     }
   };
 
   // Handle force checkout (skip work log requirement)
   const handleForceCheckout = async () => {
+    console.log('Force checkout requested');
     await handleCheckOut(true);
+  };
+  
+  // Handle close modal
+  const handleCloseWorkLogModal = () => {
+    setShowWorkLogRequiredModal(false);
+    setWorkLogRequiredDetails(null);
+    setAttendanceLoading(false);
   };
 
   const formatTime = (dateString?: string) => {
@@ -849,7 +864,7 @@ const EmployeeDashboard: React.FC = () => {
       {showWorkLogRequiredModal && workLogRequiredDetails && (
         <WorkLogRequiredModal
           isOpen={showWorkLogRequiredModal}
-          onClose={() => setShowWorkLogRequiredModal(false)}
+          onClose={handleCloseWorkLogModal}
           onSubmit={handleWorkLogRequiredSubmit}
           onForceCheckout={handleForceCheckout}
           details={workLogRequiredDetails}
