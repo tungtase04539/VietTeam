@@ -20,6 +20,8 @@ const VideoUpload: React.FC<VideoUploadProps> = ({
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const MAX_SIZE = parseInt(import.meta.env.VITE_MAX_VIDEO_SIZE || '524288000'); // 500MB
@@ -35,12 +37,8 @@ const VideoUpload: React.FC<VideoUploadProps> = ({
     return null;
   };
 
-  const handleUpload = async (file: File) => {
-    const validationError = validateFile(file);
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
+  const handleAuthAndUpload = async () => {
+    if (!pendingFile) return;
 
     setUploading(true);
     setError(null);
@@ -51,9 +49,9 @@ const VideoUpload: React.FC<VideoUploadProps> = ({
       await initGoogleDrive();
       await initGoogleIdentity();
 
-      // Upload to Drive
+      // Upload to Drive (OAuth popup will open here from user click)
       const result = await uploadVideoToDrive(
-        file,
+        pendingFile,
         employeeName,
         date,
         taskName,
@@ -63,14 +61,16 @@ const VideoUpload: React.FC<VideoUploadProps> = ({
       onUploadComplete({
         url: result.webViewLink,
         fileId: result.fileId,
-        fileName: file.name,
+        fileName: pendingFile.name,
       });
 
+      setIsAuthenticated(true);
+      setPendingFile(null);
       setUploading(false);
       setProgress(100);
     } catch (err: any) {
       console.error('Upload error:', err);
-      setError(err.message || 'Lỗi khi upload video');
+      setError(err.message || 'Lỗi khi upload video. Vui lòng thử lại.');
       setUploading(false);
     }
   };
@@ -78,7 +78,13 @@ const VideoUpload: React.FC<VideoUploadProps> = ({
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      handleUpload(file);
+      const validationError = validateFile(file);
+      if (validationError) {
+        setError(validationError);
+        return;
+      }
+      setPendingFile(file);
+      setError(null);
     }
   };
 
@@ -88,7 +94,13 @@ const VideoUpload: React.FC<VideoUploadProps> = ({
 
     const file = e.dataTransfer.files?.[0];
     if (file) {
-      handleUpload(file);
+      const validationError = validateFile(file);
+      if (validationError) {
+        setError(validationError);
+        return;
+      }
+      setPendingFile(file);
+      setError(null);
     }
   };
 
@@ -129,8 +141,50 @@ const VideoUpload: React.FC<VideoUploadProps> = ({
         </div>
       )}
 
+      {/* File Selected - Ready to Upload */}
+      {pendingFile && !uploading && !existingVideo && (
+        <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6">
+          <div className="flex items-start gap-4">
+            <svg className="w-12 h-12 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+            </svg>
+            <div className="flex-1">
+              <h4 className="font-semibold text-blue-900 mb-1">File đã chọn</h4>
+              <p className="text-sm text-blue-700 mb-1">{pendingFile.name}</p>
+              <p className="text-xs text-blue-600">
+                Kích thước: {(pendingFile.size / 1024 / 1024).toFixed(2)}MB
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 flex gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setPendingFile(null);
+                setError(null);
+              }}
+              className="flex-1 px-4 py-2.5 border-2 border-slate-300 text-slate-700 font-medium rounded-lg hover:bg-slate-100 transition-colors"
+            >
+              Hủy
+            </button>
+            <button
+              type="button"
+              onClick={handleAuthAndUpload}
+              className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-colors shadow-lg"
+            >
+              📤 Kết nối & Upload lên Drive
+            </button>
+          </div>
+          
+          <p className="text-xs text-blue-600 mt-3 text-center">
+            ℹ️ Popup Google sẽ mở để xác thực. Vui lòng cho phép popup nếu bị chặn.
+          </p>
+        </div>
+      )}
+
       {/* Upload Area */}
-      {!existingVideo && !uploading && (
+      {!existingVideo && !uploading && !pendingFile && (
         <div
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
@@ -220,16 +274,29 @@ const VideoUpload: React.FC<VideoUploadProps> = ({
             <svg className="w-6 h-6 text-red-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <div>
+            <div className="flex-1">
               <p className="font-semibold text-red-900">Lỗi upload</p>
-              <p className="text-sm text-red-700">{error}</p>
+              <p className="text-sm text-red-700 mb-2">{error}</p>
+              {error.includes('popup') || error.includes('blocked') ? (
+                <div className="bg-yellow-50 border border-yellow-200 rounded p-2 mt-2">
+                  <p className="text-xs text-yellow-800">
+                    💡 <strong>Popup bị chặn?</strong> Vui lòng:
+                    <br />• Cho phép popup trong trình duyệt
+                    <br />• Hoặc click icon popup ở address bar
+                    <br />• Sau đó thử lại
+                  </p>
+                </div>
+              ) : null}
             </div>
           </div>
           <button
-            onClick={() => setError(null)}
+            onClick={() => {
+              setError(null);
+              if (pendingFile) setPendingFile(null);
+            }}
             className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
           >
-            Thử lại
+            Đóng
           </button>
         </div>
       )}
