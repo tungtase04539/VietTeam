@@ -15,6 +15,11 @@ export default function ManagerDashboard() {
   const [loading, setLoading] = useState(true);
   const [showAssignWorkModal, setShowAssignWorkModal] = useState(false);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
+  const [workItems, setWorkItems] = useState<Array<{
+    id: string;
+    title: string;
+    description: string;
+  }>>([{ id: '1', title: '', description: '' }]);
 
   useEffect(() => {
     loadData();
@@ -100,29 +105,47 @@ export default function ManagerDashboard() {
   const handleAssignWork = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const form = e.currentTarget;
 
     if (selectedEmployees.length === 0) {
       showError('Vui lòng chọn ít nhất một nhân viên');
       return;
     }
 
-    try {
-      const response = await teamAPI.assignWork({
-        employeeIds: selectedEmployees,
-        title: formData.get('title') as string,
-        description: formData.get('description') as string,
-        startDate: formData.get('startDate') as string,
-        endDate: formData.get('endDate') as string,
-      });
+    // Validate work items
+    const validWorkItems = workItems.filter((item) => item.title.trim() !== '');
+    if (validWorkItems.length === 0) {
+      showError('Vui lòng nhập ít nhất một công việc');
+      return;
+    }
 
-      form.reset();
+    const startDate = formData.get('startDate') as string;
+    const endDate = formData.get('endDate') as string;
+
+    try {
+      let totalCreated = 0;
+      
+      // Giao từng công việc
+      for (const workItem of validWorkItems) {
+        const response = await teamAPI.assignWork({
+          employeeIds: selectedEmployees,
+          title: workItem.title,
+          description: workItem.description,
+          startDate,
+          endDate,
+        });
+        totalCreated += response.data.summary.totalWorkLogs;
+      }
+
       setShowAssignWorkModal(false);
       setSelectedEmployees([]);
+      setWorkItems([{ id: '1', title: '', description: '' }]);
       
-      const summary = response.data.summary;
+      const start = new Date(startDate);
+      const end = new Date(endDate || startDate);
+      const dayCount = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      
       showSuccess(
-        `Đã giao ${summary.totalWorkLogs} công việc cho ${summary.employeeCount} nhân viên trong ${summary.dayCount} ngày`
+        `Đã giao ${totalCreated} công việc (${validWorkItems.length} loại × ${selectedEmployees.length} người × ${dayCount} ngày)`
       );
       
       // Reload all data
@@ -134,6 +157,21 @@ export default function ManagerDashboard() {
       console.error('Assign work error:', error);
       showError(error.response?.data?.message || 'Lỗi khi giao việc');
     }
+  };
+
+  const addWorkItem = () => {
+    setWorkItems([...workItems, { id: Date.now().toString(), title: '', description: '' }]);
+  };
+
+  const removeWorkItem = (id: string) => {
+    if (workItems.length === 1) return; // Keep at least 1
+    setWorkItems(workItems.filter((item) => item.id !== id));
+  };
+
+  const updateWorkItem = (id: string, field: 'title' | 'description', value: string) => {
+    setWorkItems(workItems.map((item) => 
+      item.id === id ? { ...item, [field]: value } : item
+    ));
   };
 
   const toggleEmployeeSelection = (employeeId: string) => {
@@ -506,30 +544,74 @@ export default function ManagerDashboard() {
                 </p>
               </div>
 
-              {/* Task Details */}
+              {/* Work Items - Dynamic List */}
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Tiêu đề công việc <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="title"
-                  required
-                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  placeholder="VD: Hoàn thành báo cáo tháng 11"
-                />
-              </div>
+                <div className="flex justify-between items-center mb-3">
+                  <label className="block text-sm font-semibold text-slate-700">
+                    Danh sách công việc <span className="text-red-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={addWorkItem}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Thêm công việc
+                  </button>
+                </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Mô tả chi tiết
-                </label>
-                <textarea
-                  name="description"
-                  rows={4}
-                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  placeholder="Mô tả chi tiết công việc, yêu cầu, deadline..."
-                />
+                <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
+                  {workItems.map((item, index) => (
+                    <div key={item.id} className="border-2 border-slate-200 rounded-xl p-4 bg-slate-50">
+                      <div className="flex justify-between items-start mb-3">
+                        <h4 className="font-semibold text-slate-700">Công việc #{index + 1}</h4>
+                        {workItems.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeWorkItem(item.id)}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
+                            title="Xóa công việc này"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">
+                            Tiêu đề <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={item.title}
+                            onChange={(e) => updateWorkItem(item.id, 'title', e.target.value)}
+                            required
+                            className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="VD: Hoàn thành báo cáo"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">
+                            Mô tả
+                          </label>
+                          <textarea
+                            value={item.description}
+                            onChange={(e) => updateWorkItem(item.id, 'description', e.target.value)}
+                            rows={2}
+                            className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Mô tả chi tiết..."
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Date Range */}
@@ -564,13 +646,31 @@ export default function ManagerDashboard() {
               </div>
 
               {/* Summary Box */}
-              {selectedEmployees.length > 0 && (
-                <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-blue-900 mb-2">📊 Tóm tắt:</h4>
-                  <ul className="text-sm text-blue-800 space-y-1">
-                    <li>• Số nhân viên: <span className="font-bold">{selectedEmployees.length}</span></li>
-                    <li>• Công việc sẽ được giao cho tất cả các nhân viên đã chọn</li>
-                    <li>• Nếu chọn nhiều ngày, công việc sẽ lặp lại mỗi ngày</li>
+              {selectedEmployees.length > 0 && workItems.filter(w => w.title.trim()).length > 0 && (
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    Tóm tắt sẽ giao:
+                  </h4>
+                  <ul className="text-sm text-blue-800 space-y-2">
+                    <li className="flex items-center gap-2">
+                      <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
+                      Số loại công việc: <span className="font-bold">{workItems.filter(w => w.title.trim()).length}</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
+                      Số nhân viên: <span className="font-bold">{selectedEmployees.length}</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
+                      Mỗi công việc sẽ giao cho tất cả nhân viên đã chọn
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
+                      Nếu chọn nhiều ngày, mỗi công việc sẽ lặp lại mỗi ngày
+                    </li>
                   </ul>
                 </div>
               )}
@@ -582,6 +682,7 @@ export default function ManagerDashboard() {
                   onClick={() => {
                     setShowAssignWorkModal(false);
                     setSelectedEmployees([]);
+                    setWorkItems([{ id: '1', title: '', description: '' }]);
                   }}
                   className="flex-1 px-6 py-3 border-2 border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-100 transition-colors"
                 >
@@ -589,10 +690,10 @@ export default function ManagerDashboard() {
                 </button>
                 <button
                   type="submit"
-                  disabled={selectedEmployees.length === 0}
+                  disabled={selectedEmployees.length === 0 || workItems.filter(w => w.title.trim()).length === 0}
                   className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  ✓ Giao việc ({selectedEmployees.length} người)
+                  ✓ Giao {workItems.filter(w => w.title.trim()).length} việc cho {selectedEmployees.length} người
                 </button>
               </div>
             </form>

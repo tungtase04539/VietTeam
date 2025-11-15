@@ -30,6 +30,8 @@ export default function TeamManagementTab() {
     currentRole: string;
   }>({ isOpen: false, employeeId: null, currentRole: '' });
 
+  const [selectedMembersToAdd, setSelectedMembersToAdd] = useState<string[]>([]);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -113,17 +115,35 @@ export default function TeamManagementTab() {
     e.preventDefault();
     if (!selectedTeam) return;
 
-    const formData = new FormData(e.currentTarget);
-    const employeeId = formData.get('employeeId') as string;
+    if (selectedMembersToAdd.length === 0) {
+      showError('Vui lòng chọn ít nhất một nhân viên');
+      return;
+    }
 
     try {
-      await teamAPI.addMember(selectedTeam.id, employeeId);
+      const response = await teamAPI.addMembers(selectedTeam.id, selectedMembersToAdd);
       setShowAddMemberModal(false);
       setSelectedTeam(null);
-      showSuccess('Thêm thành viên thành công!');
+      setSelectedMembersToAdd([]);
+      showSuccess(response.data.message);
       await loadData();
     } catch (error: any) {
       showError(error.response?.data?.message || 'Lỗi khi thêm thành viên');
+    }
+  };
+
+  const toggleMemberSelection = (employeeId: string) => {
+    setSelectedMembersToAdd((prev) =>
+      prev.includes(employeeId) ? prev.filter((id) => id !== employeeId) : [...prev, employeeId]
+    );
+  };
+
+  const selectAllAvailableMembers = () => {
+    const available = getAvailableEmployees();
+    if (selectedMembersToAdd.length === available.length) {
+      setSelectedMembersToAdd([]);
+    } else {
+      setSelectedMembersToAdd(available.map((emp) => emp.id));
     }
   };
 
@@ -447,21 +467,48 @@ export default function TeamManagementTab() {
             <h3 className="text-xl font-bold mb-4">Thêm thành viên vào {selectedTeam.name}</h3>
             <form onSubmit={handleAddMember}>
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nhân viên
-                </label>
-                <select
-                  name="employeeId"
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Chọn nhân viên</option>
-                  {getAvailableEmployees().map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.firstName} {emp.lastName} - {emp.position}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-semibold text-gray-700">
+                    Chọn nhân viên <span className="text-red-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={selectAllAvailableMembers}
+                    className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    {selectedMembersToAdd.length === getAvailableEmployees().length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                  </button>
+                </div>
+                <div className="border-2 border-gray-200 rounded-lg p-3 max-h-64 overflow-y-auto space-y-2">
+                  {getAvailableEmployees().length === 0 ? (
+                    <p className="text-gray-500 text-sm text-center py-4">Không có nhân viên nào khả dụng</p>
+                  ) : (
+                    getAvailableEmployees().map((emp) => (
+                      <label
+                        key={emp.id}
+                        className="flex items-center p-3 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedMembersToAdd.includes(emp.id)}
+                          onChange={() => toggleMemberSelection(emp.id)}
+                          className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                        />
+                        <div className="ml-3">
+                          <div className="font-medium text-gray-900">
+                            {emp.firstName} {emp.lastName}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {emp.position} - {emp.department}
+                          </div>
+                        </div>
+                      </label>
+                    ))
+                  )}
+                </div>
+                <p className="text-sm text-gray-600 mt-2">
+                  Đã chọn: <span className="font-semibold text-blue-600">{selectedMembersToAdd.length}</span> nhân viên
+                </p>
               </div>
 
               <div className="flex justify-end gap-2">
@@ -470,6 +517,7 @@ export default function TeamManagementTab() {
                   onClick={() => {
                     setShowAddMemberModal(false);
                     setSelectedTeam(null);
+                    setSelectedMembersToAdd([]);
                   }}
                   className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
                 >
@@ -477,9 +525,10 @@ export default function TeamManagementTab() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  disabled={selectedMembersToAdd.length === 0}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Thêm
+                  Thêm ({selectedMembersToAdd.length})
                 </button>
               </div>
             </form>

@@ -135,6 +135,10 @@ export const teamAPI = {
     api.post<{ message: string; employee: Employee }>(`/teams/${teamId}/members`, {
       employeeId,
     }),
+  addMembers: (teamId: string, employeeIds: string[]) =>
+    api.post<{ message: string; employees: Employee[]; count: number }>(`/teams/${teamId}/members`, {
+      employeeIds,
+    }),
   removeMember: (employeeId: string) =>
     api.delete<{ message: string; employee: Employee }>(`/teams/members/${employeeId}`),
   assignWork: (data: AssignWorkLogData) =>

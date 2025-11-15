@@ -163,28 +163,25 @@ export const getMyTeam = async (req: AuthRequest, res: Response) => {
 export const addEmployeeToTeam = async (req: AuthRequest, res: Response) => {
   try {
     const { teamId } = req.params;
-    const { employeeId } = req.body;
+    const { employeeId, employeeIds } = req.body;
 
-    const employee = await prisma.employee.update({
-      where: { id: employeeId },
-      data: { teamId },
-      include: {
-        team: {
-          include: {
-            manager: {
-              select: {
-                firstName: true,
-                lastName: true,
-              },
-            },
-          },
-        },
-      },
-    });
+    // Support both single and multiple employees
+    const idsToAdd = employeeIds ? (Array.isArray(employeeIds) ? employeeIds : [employeeIds]) : [employeeId];
+
+    // Update all employees
+    const updatedEmployees = await Promise.all(
+      idsToAdd.map((id) =>
+        prisma.employee.update({
+          where: { id },
+          data: { teamId },
+        })
+      )
+    );
 
     res.json({
-      message: 'Thêm nhân viên vào nhóm thành công',
-      employee,
+      message: `Đã thêm ${updatedEmployees.length} nhân viên vào nhóm`,
+      employees: updatedEmployees,
+      count: updatedEmployees.length,
     });
   } catch (error) {
     console.error('Add employee to team error:', error);
