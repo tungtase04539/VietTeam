@@ -33,6 +33,7 @@ const EmployeeDashboard: React.FC = () => {
   const [workLogStats, setWorkLogStats] = useState<WorkLogStatistics | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [workLogLoading, setWorkLogLoading] = useState(false);
+  const [currentTaskTitle, setCurrentTaskTitle] = useState('');
 
   // Attendance stats
   const [attendanceStats, setAttendanceStats] = useState<AttendanceStatistics | null>(null);
@@ -229,6 +230,7 @@ const EmployeeDashboard: React.FC = () => {
       setShowAddModal(false);
       setShowWarningModal(false); // Đóng warning modal nếu đang mở
       setVideoData(null); // Clear video data
+      setCurrentTaskTitle(''); // Clear task title
 
       // Clear localStorage tracking vì đã update work log
       localStorage.removeItem('lastCheckOutTime');
@@ -833,6 +835,7 @@ const EmployeeDashboard: React.FC = () => {
                 onClick={() => {
                   setShowAddModal(false);
                   setVideoData(null);
+                  setCurrentTaskTitle('');
                 }}
                 className="text-slate-400 hover:text-slate-600"
               >
@@ -856,6 +859,8 @@ const EmployeeDashboard: React.FC = () => {
                   type="text"
                   name="title"
                   required
+                  value={currentTaskTitle}
+                  onChange={(e) => setCurrentTaskTitle(e.target.value)}
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   placeholder="Tên công việc"
                 />
@@ -910,10 +915,15 @@ const EmployeeDashboard: React.FC = () => {
                 <VideoUpload
                   employeeName={`${employee?.firstName}_${employee?.lastName}`}
                   date={new Date().toISOString().split('T')[0]}
-                  taskName={(document.getElementsByName('title')[0] as HTMLInputElement)?.value || 'Task'}
+                  taskName={currentTaskTitle || 'Untitled_Task'}
                   onUploadComplete={(data) => setVideoData(data)}
                   existingVideo={videoData ? { url: videoData.url, fileName: videoData.fileName } : undefined}
                 />
+                {!currentTaskTitle && (
+                  <p className="text-xs text-amber-600 mt-2">
+                    💡 Vui lòng nhập tiêu đề công việc trước khi upload video
+                  </p>
+                )}
               </div>
 
               <div className="flex gap-3 pt-4">
@@ -922,6 +932,7 @@ const EmployeeDashboard: React.FC = () => {
                   onClick={() => {
                     setShowAddModal(false);
                     setVideoData(null);
+                    setCurrentTaskTitle('');
                   }}
                   className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
                 >
