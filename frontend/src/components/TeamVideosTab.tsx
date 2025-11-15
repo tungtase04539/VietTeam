@@ -26,8 +26,14 @@ const TeamVideosTab: React.FC = () => {
         status: filter.status || undefined,
       });
 
+      console.log('Team work logs response:', response.data);
+      console.log('Total work logs:', response.data.workLogs.length);
+
       // Chỉ lấy work logs có video
       const logsWithVideos = response.data.workLogs.filter((log) => log.videoUrl);
+      console.log('Work logs with videos:', logsWithVideos.length);
+      console.log('Videos:', logsWithVideos);
+
       setWorkLogs(logsWithVideos);
     } catch (error) {
       console.error('Load videos error:', error);
