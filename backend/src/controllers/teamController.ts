@@ -386,3 +386,197 @@ export const assignWorkLog = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ message: 'Lỗi server' });
   }
 };
+
+// Get team attendance summary (Manager only)
+export const getTeamAttendanceSummary = async (req: AuthRequest, res: Response) => {
+  try {
+    const managerId = req.user?.employee?.id;
+    if (!managerId) {
+      return res.status(404).json({ message: 'Không tìm thấy thông tin nhân viên' });
+    }
+
+    // Verify manager has a team
+    const manager = await prisma.employee.findUnique({
+      where: { id: managerId },
+      include: { managedTeam: { include: { members: true } } },
+    });
+
+    if (!manager?.managedTeam) {
+      return res.status(403).json({ message: 'Bạn không quản lý nhóm nào' });
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const teamMemberIds = manager.managedTeam.members.map((m) => m.id);
+
+    // Today's attendance for team members
+    const todayAttendances = await prisma.attendance.findMany({
+      where: {
+        employeeId: { in: teamMemberIds },
+        date: {
+          gte: today,
+          lt: new Date(today.getTime() + 24 * 60 * 60 * 1000),
+        },
+      },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            position: true,
+          },
+        },
+      },
+    });
+
+    // This month statistics
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const monthAttendances = await prisma.attendance.findMany({
+      where: {
+        employeeId: { in: teamMemberIds },
+        date: { gte: startOfMonth },
+      },
+    });
+
+    const totalTeamMembers = teamMemberIds.length;
+    
+    // Tính unique employees đã check-in
+    const uniqueCheckedIn = new Set(
+      todayAttendances.filter((att) => att.checkInTime).map((att) => att.employeeId)
+    );
+    const checkedInToday = uniqueCheckedIn.size;
+
+    // Tính unique employees đang làm việc
+    const currentlyWorking = new Set(
+      todayAttendances
+        .filter((att) => att.checkInTime && !att.checkOutTime)
+        .map((att) => att.employeeId)
+    );
+
+    const totalHoursThisMonth = monthAttendances.reduce(
+      (sum, att) => sum + (att.totalHours || 0),
+      0
+    );
+
+    res.json({
+      today: {
+        date: today,
+        totalTeamMembers,
+        checkedIn: checkedInToday,
+        currentlyWorking: currentlyWorking.size,
+        attendanceRate: totalTeamMembers > 0 
+          ? Math.round((checkedInToday / totalTeamMembers) * 100) 
+          : 0,
+      },
+      thisMonth: {
+        totalHours: Math.round(totalHoursThisMonth * 100) / 100,
+        averageHoursPerDay:
+          monthAttendances.length > 0
+            ? Math.round((totalHoursThisMonth / monthAttendances.length) * 100) / 100
+            : 0,
+      },
+      realTimeAttendance: todayAttendances,
+    });
+  } catch (error) {
+    console.error('Get team attendance summary error:', error);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+};
+
+// Get team work log statistics (Manager only)
+export const getTeamWorkLogStats = async (req: AuthRequest, res: Response) => {
+  try {
+    const managerId = req.user?.employee?.id;
+    if (!managerId) {
+      return res.status(404).json({ message: 'Không tìm thấy thông tin nhân viên' });
+    }
+
+    // Verify manager has a team
+    const manager = await prisma.employee.findUnique({
+      where: { id: managerId },
+      include: { managedTeam: { include: { members: true } } },
+    });
+
+    if (!manager?.managedTeam) {
+      return res.status(403).json({ message: 'Bạn không quản lý nhóm nào' });
+    }
+
+    const { startDate, endDate } = req.query;
+
+    const teamMemberIds = manager.managedTeam.members.map((m) => m.id);
+
+    const where: any = {
+      employeeId: { in: teamMemberIds },
+    };
+
+    if (startDate || endDate) {
+      where.date = {};
+      if (startDate) where.date.gte = new Date(startDate as string);
+      if (endDate) where.date.lte = new Date(endDate as string);
+    }
+
+    const workLogs = await prisma.workLog.findMany({
+      where,
+      include: {
+        employee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    // Overall statistics
+    const totalLogs = workLogs.length;
+    const totalHours = workLogs.reduce((sum, log) => sum + (log.hoursSpent || 0), 0);
+    const completedTasks = workLogs.filter((log) => log.status === 'COMPLETED').length;
+    const inProgressTasks = workLogs.filter((log) => log.status === 'IN_PROGRESS').length;
+    const todoTasks = workLogs.filter((log) => log.status === 'TODO').length;
+    const blockedTasks = workLogs.filter((log) => log.status === 'BLOCKED').length;
+
+    // Group by employee
+    const employeeStats: Record<string, any> = {};
+    workLogs.forEach((log) => {
+      const empId = log.employee.id;
+      const empName = `${log.employee.firstName} ${log.employee.lastName}`;
+      if (!employeeStats[empId]) {
+        employeeStats[empId] = {
+          name: empName,
+          totalLogs: 0,
+          totalHours: 0,
+          completed: 0,
+          inProgress: 0,
+          todo: 0,
+          blocked: 0,
+        };
+      }
+      employeeStats[empId].totalLogs++;
+      employeeStats[empId].totalHours += log.hoursSpent || 0;
+      if (log.status === 'COMPLETED') employeeStats[empId].completed++;
+      if (log.status === 'IN_PROGRESS') employeeStats[empId].inProgress++;
+      if (log.status === 'TODO') employeeStats[empId].todo++;
+      if (log.status === 'BLOCKED') employeeStats[empId].blocked++;
+    });
+
+    res.json({
+      overall: {
+        totalLogs,
+        totalHours: Math.round(totalHours * 100) / 100,
+        completedTasks,
+        inProgressTasks,
+        todoTasks,
+        blockedTasks,
+        completionRate: totalLogs > 0 ? Math.round((completedTasks / totalLogs) * 100) : 0,
+      },
+      employeeStats: Object.values(employeeStats),
+      recentWorkLogs: workLogs.slice(0, 10),
+    });
+  } catch (error) {
+    console.error('Get team work log stats error:', error);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+};

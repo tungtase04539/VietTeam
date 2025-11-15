@@ -133,6 +133,9 @@ export const teamAPI = {
     api.delete<{ message: string; employee: Employee }>(`/teams/members/${employeeId}`),
   assignWork: (data: AssignWorkLogData) =>
     api.post<{ message: string; workLog: WorkLog }>('/teams/assign-work', data),
+  getAttendanceSummary: () => api.get<any>('/teams/attendance-summary'),
+  getWorkLogStats: (params?: { startDate?: string; endDate?: string }) =>
+    api.get<any>('/teams/worklog-stats', { params }),
 };
 
 export default api;

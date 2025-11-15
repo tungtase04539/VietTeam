@@ -9,6 +9,8 @@ import {
   updateTeam,
   deleteTeam,
   assignWorkLog,
+  getTeamAttendanceSummary,
+  getTeamWorkLogStats,
 } from '../controllers/teamController';
 
 const router = express.Router();
@@ -29,5 +31,7 @@ router.get('/my-team', getMyTeam);
 
 // Manager only routes
 router.post('/assign-work', authorize('MANAGER'), assignWorkLog);
+router.get('/attendance-summary', authorize('MANAGER'), getTeamAttendanceSummary);
+router.get('/worklog-stats', authorize('MANAGER'), getTeamWorkLogStats);
 
 export default router;
