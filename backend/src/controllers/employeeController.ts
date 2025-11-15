@@ -363,3 +363,137 @@ export const createDemoAccounts = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ message: 'Lỗi server khi tạo demo accounts' });
   }
 };
+
+// Create demo data for rankings (Admin only)
+export const createDemoData = async (req: AuthRequest, res: Response) => {
+  try {
+    // Get all employees
+    const employees = await prisma.employee.findMany({
+      where: {
+        user: {
+          role: { not: 'ADMIN' },
+        },
+      },
+    });
+
+    if (employees.length === 0) {
+      return res.status(400).json({ 
+        message: 'Không có nhân viên nào để tạo demo data. Hãy tạo demo accounts trước!' 
+      });
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Generate data for last 30 days
+    const attendanceRecords = [];
+    const workLogRecords = [];
+
+    for (const employee of employees) {
+      // Random performance factor (0.6 - 1.0)
+      const performanceFactor = 0.6 + Math.random() * 0.4;
+      
+      // Generate attendance for last 30 days
+      for (let i = 0; i < 30; i++) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+
+        // 80-100% chance of attendance based on performance
+        if (Math.random() < 0.8 + performanceFactor * 0.2) {
+          const checkInHour = 8 + Math.floor(Math.random() * 2); // 8-9 AM
+          const checkInMinute = Math.floor(Math.random() * 60);
+          const checkInTime = new Date(date);
+          checkInTime.setHours(checkInHour, checkInMinute, 0, 0);
+
+          // Work 6-10 hours
+          const hoursWorked = 6 + Math.random() * 4 * performanceFactor;
+          const checkOutTime = new Date(checkInTime);
+          checkOutTime.setHours(
+            checkInTime.getHours() + Math.floor(hoursWorked),
+            checkInTime.getMinutes() + Math.floor((hoursWorked % 1) * 60)
+          );
+
+          attendanceRecords.push({
+            employeeId: employee.id,
+            date,
+            checkInTime,
+            checkOutTime,
+            totalHours: Math.round(hoursWorked * 100) / 100,
+            status: 'PRESENT',
+          });
+        }
+      }
+
+      // Generate work logs for last 30 days
+      const tasksPerDay = Math.floor(1 + Math.random() * 3 * performanceFactor); // 1-3 tasks/day
+      
+      for (let i = 0; i < 30; i++) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+
+        for (let j = 0; j < tasksPerDay; j++) {
+          const taskTypes = [
+            'Code Review',
+            'Bug Fix',
+            'Feature Development',
+            'Documentation',
+            'Meeting',
+            'Testing',
+            'Deployment',
+            'Refactoring',
+          ];
+
+          const randomStatus = Math.random();
+          let status: string;
+          let hoursSpent: number | null = null;
+
+          // Status distribution based on performance
+          if (randomStatus < performanceFactor * 0.7) {
+            status = 'COMPLETED';
+            hoursSpent = 0.5 + Math.random() * 3; // 0.5-3.5 hours
+          } else if (randomStatus < performanceFactor * 0.85) {
+            status = 'IN_PROGRESS';
+            hoursSpent = 0.5 + Math.random() * 2;
+          } else if (randomStatus < 0.95) {
+            status = 'TODO';
+          } else {
+            status = 'BLOCKED';
+          }
+
+          workLogRecords.push({
+            employeeId: employee.id,
+            title: taskTypes[Math.floor(Math.random() * taskTypes.length)],
+            description: `Demo task for ${employee.firstName}`,
+            date,
+            status,
+            hoursSpent: hoursSpent ? Math.round(hoursSpent * 100) / 100 : null,
+          });
+        }
+      }
+    }
+
+    // Create all records
+    await prisma.attendance.createMany({
+      data: attendanceRecords,
+      skipDuplicates: true,
+    });
+
+    await prisma.workLog.createMany({
+      data: workLogRecords,
+      skipDuplicates: true,
+    });
+
+    res.status(201).json({
+      message: `Đã tạo demo data thành công!`,
+      summary: {
+        employees: employees.length,
+        attendances: attendanceRecords.length,
+        workLogs: workLogRecords.length,
+        period: '30 ngày gần đây',
+      },
+    });
+  } catch (error) {
+    console.error('Create demo data error:', error);
+    res.status(500).json({ message: 'Lỗi server khi tạo demo data' });
+  }
+};

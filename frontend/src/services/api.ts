@@ -68,6 +68,15 @@ export const employeeAPI = {
     employees: any[];
     credentials: { password: string; accounts: string[] };
   }>('/employees/create-demo'),
+  createDemoData: () => api.post<{
+    message: string;
+    summary: {
+      employees: number;
+      attendances: number;
+      workLogs: number;
+      period: string;
+    };
+  }>('/employees/create-demo-data'),
 };
 
 // Attendance API

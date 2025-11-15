@@ -305,6 +305,54 @@ const AdminDashboard: React.FC = () => {
     });
   };
 
+  const handleCreateDemoData = () => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Tạo demo data cho xếp hạng',
+      message:
+        'Tạo demo data cho 30 ngày gần đây:\n\n' +
+        '📊 Chấm công ngẫu nhiên\n' +
+        '📋 Công việc với các trạng thái khác nhau\n' +
+        '⏱️ Giờ làm việc thực tế\n\n' +
+        '💡 Dữ liệu sẽ được tạo cho tất cả nhân viên hiện có.\n' +
+        'Bạn có muốn tiếp tục?',
+      onConfirm: async () => {
+        setConfirmDialog({ ...confirmDialog, isOpen: false });
+
+        try {
+          const response = await employeeAPI.createDemoData();
+          setAlertDialog({
+            isOpen: true,
+            title: '✅ Đã tạo demo data thành công!',
+            message:
+              `📊 Tóm tắt:\n\n` +
+              `• ${response.data.summary.employees} nhân viên\n` +
+              `• ${response.data.summary.attendances} bản ghi chấm công\n` +
+              `• ${response.data.summary.workLogs} công việc\n` +
+              `• Khoảng thời gian: ${response.data.summary.period}\n\n` +
+              `Bạn có thể vào tab Xếp hạng để xem kết quả!`,
+            type: 'success',
+          });
+
+          // Reload all data
+          await Promise.all([
+            fetchAttendanceSummary(),
+            fetchAttendances(),
+            fetchWorkLogs(),
+            fetchWorkLogStats(),
+          ]);
+        } catch (err: any) {
+          setAlertDialog({
+            isOpen: true,
+            title: 'Lỗi',
+            message: err.response?.data?.message || 'Lỗi khi tạo demo data',
+            type: 'error',
+          });
+        }
+      },
+    });
+  };
+
   const handleEdit = (employee: Employee) => {
     setEditingEmployee(employee);
     setShowEditModal(true);
@@ -789,8 +837,8 @@ const AdminDashboard: React.FC = () => {
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-white border border-red-300 rounded-lg p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-white border border-blue-300 rounded-lg p-4">
                       <h4 className="font-semibold text-slate-900 mb-2">Tạo tài khoản demo</h4>
                       <p className="text-sm text-slate-600 mb-3">
                         Tạo 5 tài khoản nhân viên demo với mật khẩu: <span className="font-mono bg-slate-100 px-2 py-0.5 rounded">123456</span>
@@ -800,6 +848,19 @@ const AdminDashboard: React.FC = () => {
                         className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                       >
                         🎭 Tạo 5 tài khoản demo
+                      </button>
+                    </div>
+
+                    <div className="bg-white border border-green-300 rounded-lg p-4">
+                      <h4 className="font-semibold text-slate-900 mb-2">Tạo demo data</h4>
+                      <p className="text-sm text-slate-600 mb-3">
+                        Tạo chấm công & công việc cho 30 ngày để test <span className="font-bold text-green-600">xếp hạng</span>
+                      </p>
+                      <button
+                        onClick={handleCreateDemoData}
+                        className="w-full px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                      >
+                        📊 Tạo demo data
                       </button>
                     </div>
 
