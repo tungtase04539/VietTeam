@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { employeeAPI, attendanceAPI, workLogAPI } from '../services/api';
 import {
   Employee,
@@ -14,6 +15,7 @@ type TabType = 'employees' | 'attendance' | 'worklogs' | 'teams';
 
 const AdminDashboard: React.FC = () => {
   const { user, logout } = useAuth();
+  const { showSuccess, showError } = useToast();
   const [activeTab, setActiveTab] = useState<TabType>('employees');
 
   // Employee state
@@ -155,6 +157,57 @@ const AdminDashboard: React.FC = () => {
       alert('Xóa nhân viên thành công');
     } catch (err: any) {
       alert(err.response?.data?.message || 'Không thể xóa nhân viên');
+    }
+  };
+
+  const handleResetAll = async () => {
+    const confirmText = prompt(
+      'CẢNH BÁO: Thao tác này sẽ XÓA TẤT CẢ nhân viên, nhóm, chấm công, công việc!\n\n' +
+      'Gõ "XAC NHAN" (viết hoa, không dấu) để tiếp tục:'
+    );
+
+    if (confirmText !== 'XAC NHAN') {
+      showError('Đã hủy thao tác reset');
+      return;
+    }
+
+    try {
+      const response = await employeeAPI.resetAll();
+      showSuccess(response.data.message);
+      // Reload tất cả data
+      await Promise.all([
+        fetchEmployees(),
+        fetchAttendanceSummary(),
+        fetchAttendances(),
+        fetchWorkLogs(),
+        fetchWorkLogStats(),
+      ]);
+    } catch (err: any) {
+      showError(err.response?.data?.message || 'Lỗi khi reset dữ liệu');
+    }
+  };
+
+  const handleCreateDemo = async () => {
+    if (!window.confirm('Tạo 5 tài khoản demo với email demo1-5@vietteam.com và mật khẩu 123456?')) {
+      return;
+    }
+
+    try {
+      const response = await employeeAPI.createDemo();
+      showSuccess(response.data.message);
+      
+      // Show credentials info
+      const accountsList = response.data.credentials.accounts.join('\n');
+      alert(
+        `Đã tạo thành công!\n\n` +
+        `Tài khoản:\n${accountsList}\n\n` +
+        `Mật khẩu: ${response.data.credentials.password}`
+      );
+      
+      // Reload employees
+      await fetchEmployees();
+    } catch (err: any) {
+      showError(err.response?.data?.message || 'Lỗi khi tạo demo accounts');
     }
   };
 
@@ -608,6 +661,47 @@ const AdminDashboard: React.FC = () => {
                       ))}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Danger Zone */}
+                <div className="mt-8 bg-red-50 border-2 border-red-200 rounded-xl p-6">
+                  <div className="flex items-start gap-3 mb-4">
+                    <svg className="w-6 h-6 text-red-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div>
+                      <h3 className="text-lg font-bold text-red-900">Khu vực nguy hiểm</h3>
+                      <p className="text-sm text-red-700 mt-1">Các thao tác sau đây không thể hoàn tác. Vui lòng thận trọng!</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-white border border-red-300 rounded-lg p-4">
+                      <h4 className="font-semibold text-slate-900 mb-2">Tạo tài khoản demo</h4>
+                      <p className="text-sm text-slate-600 mb-3">
+                        Tạo 5 tài khoản nhân viên demo với mật khẩu: <span className="font-mono bg-slate-100 px-2 py-0.5 rounded">123456</span>
+                      </p>
+                      <button
+                        onClick={handleCreateDemo}
+                        className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                      >
+                        🎭 Tạo 5 tài khoản demo
+                      </button>
+                    </div>
+
+                    <div className="bg-white border border-red-300 rounded-lg p-4">
+                      <h4 className="font-semibold text-red-900 mb-2">Reset toàn bộ dữ liệu</h4>
+                      <p className="text-sm text-slate-600 mb-3">
+                        Xóa tất cả nhân viên, nhóm, chấm công, công việc. <span className="font-bold text-red-600">Không thể hoàn tác!</span>
+                      </p>
+                      <button
+                        onClick={handleResetAll}
+                        className="w-full px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                      >
+                        🗑️ Reset toàn bộ
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

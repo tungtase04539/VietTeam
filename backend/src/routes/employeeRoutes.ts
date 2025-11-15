@@ -6,6 +6,8 @@ import {
   updateEmployee,
   deleteEmployee,
   updateEmployeeRole,
+  resetAllData,
+  createDemoAccounts,
 } from '../controllers/employeeController';
 import { authenticate, authorize } from '../middleware/auth';
 
@@ -31,5 +33,9 @@ router.patch('/:id/role', authorize('ADMIN'), updateEmployeeRole);
 
 // DELETE employee - chỉ admin
 router.delete('/:id', authorize('ADMIN'), deleteEmployee);
+
+// DANGER ZONE - Admin only
+router.post('/reset-all', authorize('ADMIN'), resetAllData);
+router.post('/create-demo', authorize('ADMIN'), createDemoAccounts);
 
 export default router;

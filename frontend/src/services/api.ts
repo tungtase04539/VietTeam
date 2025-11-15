@@ -62,6 +62,12 @@ export const employeeAPI = {
   updateRole: (id: string, data: UpdateRoleData) =>
     api.patch<{ message: string; user: User }>(`/employees/${id}/role`, data),
   delete: (id: string) => api.delete<{ message: string }>(`/employees/${id}`),
+  resetAll: () => api.post<{ message: string }>('/employees/reset-all'),
+  createDemo: () => api.post<{ 
+    message: string; 
+    employees: any[];
+    credentials: { password: string; accounts: string[] };
+  }>('/employees/create-demo'),
 };
 
 // Attendance API

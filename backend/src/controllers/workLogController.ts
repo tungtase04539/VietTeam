@@ -79,7 +79,10 @@ export const getMyWorkLogs = async (req: AuthRequest, res: Response) => {
           },
         },
       },
-      orderBy: { date: 'desc' },
+      orderBy: [
+        { date: 'desc' },
+        { createdAt: 'desc' },
+      ],
       take: parseInt(limit as string),
     });
 
@@ -145,7 +148,10 @@ export const getAllWorkLogs = async (req: AuthRequest, res: Response) => {
           },
         },
       },
-      orderBy: { date: 'desc' },
+      orderBy: [
+        { date: 'desc' },
+        { createdAt: 'desc' },
+      ],
       take: parseInt(limit as string),
     });
 
@@ -211,10 +217,25 @@ export const deleteWorkLog = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: 'Không tìm thấy work log' });
     }
 
-    if (req.user?.role !== 'ADMIN' && existingLog.employeeId !== employeeId) {
+    // Admin can delete any work log
+    if (req.user?.role === 'ADMIN') {
+      await prisma.workLog.delete({ where: { id } });
+      return res.json({ message: 'Xóa work log thành công' });
+    }
+
+    // Check if work log belongs to current user
+    if (existingLog.employeeId !== employeeId) {
       return res.status(403).json({ message: 'Bạn không có quyền xóa work log này' });
     }
 
+    // Employee cannot delete work logs assigned by manager
+    if (existingLog.assignedById) {
+      return res.status(403).json({ 
+        message: 'Không thể xóa công việc được giao bởi quản lý. Vui lòng liên hệ quản lý để thay đổi.' 
+      });
+    }
+
+    // Can only delete self-created work logs
     await prisma.workLog.delete({
       where: { id },
     });
