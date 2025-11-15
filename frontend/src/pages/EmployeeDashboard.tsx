@@ -4,6 +4,7 @@ import { useToast } from '../context/ToastContext';
 import { attendanceAPI, workLogAPI } from '../services/api';
 import WorkLogRequiredModal from '../components/WorkLogRequiredModal';
 import ConfirmDialog from '../components/ConfirmDialog';
+import VideoUpload from '../components/VideoUpload';
 import {
   Attendance,
   WorkLog,
@@ -50,6 +51,13 @@ const EmployeeDashboard: React.FC = () => {
     isOpen: boolean;
     workLogId: string | null;
   }>({ isOpen: false, workLogId: null });
+
+  // Video upload state
+  const [videoData, setVideoData] = useState<{
+    url: string;
+    fileId: string;
+    fileName: string;
+  } | null>(null);
 
   // Load today's attendance
   useEffect(() => {
@@ -207,6 +215,9 @@ const EmployeeDashboard: React.FC = () => {
       description: formData.get('description') as string,
       hoursSpent: parseFloat(formData.get('hoursSpent') as string) || undefined,
       status: (formData.get('status') as WorkLogStatus) || 'TODO',
+      videoUrl: videoData?.url,
+      videoFileId: videoData?.fileId,
+      videoFileName: videoData?.fileName,
     };
 
     try {
@@ -217,6 +228,7 @@ const EmployeeDashboard: React.FC = () => {
       form.reset();
       setShowAddModal(false);
       setShowWarningModal(false); // Đóng warning modal nếu đang mở
+      setVideoData(null); // Clear video data
 
       // Clear localStorage tracking vì đã update work log
       localStorage.removeItem('lastCheckOutTime');
@@ -693,6 +705,20 @@ const EmployeeDashboard: React.FC = () => {
                             ⏱️ Thời gian: {formatHours(log.hoursSpent)}
                           </p>
                         )}
+                        {log.videoUrl && (
+                          <a
+                            href={log.videoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 mt-2 px-3 py-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            🎥 Xem video
+                          </a>
+                        )}
                         {log.assignedBy && (
                           <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -804,7 +830,10 @@ const EmployeeDashboard: React.FC = () => {
             <div className="px-6 py-5 border-b border-slate-200 flex justify-between items-center">
               <h3 className="text-lg font-medium text-slate-900">Thêm công việc mới</h3>
               <button
-                onClick={() => setShowAddModal(false)}
+                onClick={() => {
+                  setShowAddModal(false);
+                  setVideoData(null);
+                }}
                 className="text-slate-400 hover:text-slate-600"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -873,10 +902,27 @@ const EmployeeDashboard: React.FC = () => {
                 </select>
               </div>
 
+              {/* Video Upload */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Video minh chứng (Tùy chọn)
+                </label>
+                <VideoUpload
+                  employeeName={`${employee?.firstName}_${employee?.lastName}`}
+                  date={new Date().toISOString().split('T')[0]}
+                  taskName={(document.getElementsByName('title')[0] as HTMLInputElement)?.value || 'Task'}
+                  onUploadComplete={(data) => setVideoData(data)}
+                  existingVideo={videoData ? { url: videoData.url, fileName: videoData.fileName } : undefined}
+                />
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
+                  onClick={() => {
+                    setShowAddModal(false);
+                    setVideoData(null);
+                  }}
                   className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
                 >
                   Hủy

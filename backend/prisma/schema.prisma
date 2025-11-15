@@ -106,18 +106,21 @@ enum WorkLogStatus {
 }
 
 model WorkLog {
-  id           String        @id @default(uuid())
-  employeeId   String
-  employee     Employee      @relation("EmployeeWorkLogs", fields: [employeeId], references: [id], onDelete: Cascade)
-  assignedById String?
-  assignedBy   Employee?     @relation("AssignedWorkLogs", fields: [assignedById], references: [id], onDelete: SetNull)
-  date         DateTime      @default(now())
-  title        String
-  description  String?
-  hoursSpent   Float?
-  status       WorkLogStatus @default(TODO)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id            String        @id @default(uuid())
+  employeeId    String
+  employee      Employee      @relation("EmployeeWorkLogs", fields: [employeeId], references: [id], onDelete: Cascade)
+  assignedById  String?
+  assignedBy    Employee?     @relation("AssignedWorkLogs", fields: [assignedById], references: [id], onDelete: SetNull)
+  date          DateTime      @default(now())
+  title         String
+  description   String?
+  hoursSpent    Float?
+  status        WorkLogStatus @default(TODO)
+  videoUrl      String?
+  videoFileId   String?
+  videoFileName String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   @@map("work_logs")
 }

@@ -146,6 +146,9 @@ export interface WorkLog {
   description?: string;
   hoursSpent?: number;
   status: WorkLogStatus;
+  videoUrl?: string;
+  videoFileId?: string;
+  videoFileName?: string;
   createdAt: string;
   updatedAt: string;
   employee?: {
@@ -178,6 +181,9 @@ export interface CreateWorkLogData {
   hoursSpent?: number;
   status?: WorkLogStatus;
   date?: string;
+  videoUrl?: string;
+  videoFileId?: string;
+  videoFileName?: string;
 }
 
 export interface UpdateWorkLogData {
