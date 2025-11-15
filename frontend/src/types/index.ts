@@ -191,6 +191,9 @@ export interface UpdateWorkLogData {
   description?: string;
   hoursSpent?: number;
   status?: WorkLogStatus;
+  videoUrl?: string;
+  videoFileId?: string;
+  videoFileName?: string;
 }
 
 // Team Management Types

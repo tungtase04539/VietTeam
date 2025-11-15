@@ -60,6 +60,10 @@ const EmployeeDashboard: React.FC = () => {
     fileName: string;
   } | null>(null);
 
+  // Edit work log modal state
+  const [showEditWorkLogModal, setShowEditWorkLogModal] = useState(false);
+  const [editingWorkLog, setEditingWorkLog] = useState<WorkLog | null>(null);
+
   // Load today's attendance
   useEffect(() => {
     loadTodayAttendance();
@@ -265,6 +269,52 @@ const EmployeeDashboard: React.FC = () => {
 
       loadWorkLogs();
       showSuccess('Cập nhật trạng thái thành công!');
+    } catch (error: any) {
+      showError(error.response?.data?.message || 'Lỗi khi cập nhật');
+    }
+  };
+
+  const handleEditWorkLog = (workLog: WorkLog) => {
+    setEditingWorkLog(workLog);
+    setCurrentTaskTitle(workLog.title);
+    if (workLog.videoUrl) {
+      setVideoData({
+        url: workLog.videoUrl,
+        fileId: workLog.videoFileId || '',
+        fileName: workLog.videoFileName || '',
+      });
+    }
+    setShowEditWorkLogModal(true);
+  };
+
+  const handleUpdateWorkLog = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingWorkLog) return;
+
+    const formData = new FormData(e.currentTarget);
+    
+    try {
+      await workLogAPI.update(editingWorkLog.id, {
+        title: formData.get('title') as string,
+        description: formData.get('description') as string,
+        hoursSpent: parseFloat(formData.get('hoursSpent') as string) || undefined,
+        status: videoData ? 'COMPLETED' : (formData.get('status') as WorkLogStatus), // Auto COMPLETED if video uploaded
+        videoUrl: videoData?.url,
+        videoFileId: videoData?.fileId,
+        videoFileName: videoData?.fileName,
+      });
+
+      setShowEditWorkLogModal(false);
+      setEditingWorkLog(null);
+      setVideoData(null);
+      setCurrentTaskTitle('');
+      
+      // Clear localStorage tracking
+      localStorage.removeItem('lastCheckOutTime');
+      localStorage.removeItem('lastCheckInTime');
+
+      loadWorkLogs();
+      showSuccess(videoData ? 'Đã upload video và hoàn thành công việc!' : 'Cập nhật công việc thành công!');
     } catch (error: any) {
       showError(error.response?.data?.message || 'Lỗi khi cập nhật');
     }
@@ -762,6 +812,22 @@ const EmployeeDashboard: React.FC = () => {
                       )}
                     </div>
 
+                    {/* Upload Video Button (if no video yet) */}
+                    {!log.videoUrl && (
+                      <div className="mt-4">
+                        <button
+                          type="button"
+                          onClick={() => handleEditWorkLog(log)}
+                          className="w-full px-4 py-2.5 bg-gradient-to-r from-red-600 to-pink-600 text-white font-semibold rounded-lg hover:from-red-700 hover:to-pink-700 transition-all shadow-md flex items-center justify-center gap-2"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                          </svg>
+                          🎥 Upload Video để hoàn thành
+                        </button>
+                      </div>
+                    )}
+
                     {/* Status Buttons - Large and centered */}
                     <div className="mt-6 pt-4 border-t border-slate-200">
                       <p className="text-xs text-slate-500 mb-3 text-center font-medium">
@@ -1106,6 +1172,125 @@ const EmployeeDashboard: React.FC = () => {
                   className="flex-1 px-6 py-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 shadow-lg text-lg"
                 >
                   {workLogLoading ? 'Đang lưu...' : '✓ Cập nhật ngay'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Work Log Modal */}
+      {showEditWorkLogModal && editingWorkLog && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-5 border-b border-slate-200 bg-gradient-to-r from-purple-600 to-pink-600">
+              <h3 className="text-xl font-semibold text-white">Cập nhật công việc</h3>
+              <p className="text-purple-100 text-sm mt-1">Upload video để hoàn thành công việc</p>
+            </div>
+
+            <form onSubmit={handleUpdateWorkLog} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Tiêu đề *
+                </label>
+                <input
+                  type="text"
+                  name="title"
+                  required
+                  value={currentTaskTitle}
+                  onChange={(e) => setCurrentTaskTitle(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  placeholder="Tên công việc"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Mô tả
+                </label>
+                <textarea
+                  name="description"
+                  rows={3}
+                  defaultValue={editingWorkLog.description}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  placeholder="Chi tiết công việc..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Số giờ thực tế
+                </label>
+                <input
+                  type="number"
+                  name="hoursSpent"
+                  step="0.5"
+                  min="0"
+                  defaultValue={editingWorkLog.hoursSpent}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  placeholder="VD: 2.5"
+                />
+              </div>
+
+              {/* Only show status if no video (auto COMPLETED if video) */}
+              {!videoData && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Trạng thái
+                  </label>
+                  <select
+                    name="status"
+                    defaultValue={editingWorkLog.status}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="TODO">Chưa làm</option>
+                    <option value="IN_PROGRESS">Đang làm</option>
+                    <option value="COMPLETED">Hoàn thành</option>
+                    <option value="BLOCKED">Bị chặn</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Video Upload */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Video minh chứng {videoData && '✅'}
+                </label>
+                <VideoUpload
+                  employeeName={`${employee?.firstName}_${employee?.lastName}`}
+                  date={new Date(editingWorkLog.date).toISOString().split('T')[0]}
+                  taskName={currentTaskTitle || editingWorkLog.title}
+                  onUploadComplete={(data) => setVideoData(data)}
+                  existingVideo={videoData ? { url: videoData.url, fileName: videoData.fileName } : undefined}
+                />
+                {videoData && (
+                  <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="text-sm text-green-800">
+                      ✅ Upload video thành công! Công việc sẽ tự động chuyển sang <strong>Hoàn thành</strong>
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditWorkLogModal(false);
+                    setEditingWorkLog(null);
+                    setVideoData(null);
+                    setCurrentTaskTitle('');
+                  }}
+                  className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={workLogLoading}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 disabled:opacity-50"
+                >
+                  {workLogLoading ? 'Đang lưu...' : videoData ? '✅ Hoàn thành' : 'Cập nhật'}
                 </button>
               </div>
             </form>
