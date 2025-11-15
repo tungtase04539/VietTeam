@@ -70,7 +70,7 @@ export const checkOut = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: 'Không tìm thấy thông tin nhân viên' });
     }
 
-    const { notes } = req.body;
+    const { notes, forceCheckout } = req.body;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -113,44 +113,53 @@ export const checkOut = async (req: AuthRequest, res: Response) => {
       ? (now.getTime() - attendance.checkInTime.getTime()) / (1000 * 60 * 60)
       : 0;
 
-    let actualHours = totalHours;
-    let warning = null;
-    let lastActivityTime = now;
+    // Kiểm tra xem có cần yêu cầu work log không (trừ khi forceCheckout = true)
+    if (!forceCheckout) {
+      // Nếu có work log, kiểm tra khoảng cách thời gian
+      if (latestWorkLog && attendance.checkInTime) {
+        const timeSinceLastUpdate = (now.getTime() - latestWorkLog.updatedAt.getTime()) / (1000 * 60); // phút
 
-    // Nếu có work log, kiểm tra khoảng cách thời gian
-    if (latestWorkLog && attendance.checkInTime) {
-      const timeSinceLastUpdate = (now.getTime() - latestWorkLog.updatedAt.getTime()) / (1000 * 60); // phút
-
-      if (timeSinceLastUpdate > 1) {
-        // Tính thời gian thực tế dựa trên work log mới nhất
-        actualHours = (latestWorkLog.updatedAt.getTime() - attendance.checkInTime.getTime()) / (1000 * 60 * 60);
-        lastActivityTime = latestWorkLog.updatedAt;
-
-        warning = {
-          message: 'Bạn chưa cập nhật công việc trong 1 phút gần đây. Thời gian làm việc được tính đến lần cập nhật công việc mới nhất.',
-          lastWorkLogUpdate: latestWorkLog.updatedAt,
-          timeSinceLastUpdate: Math.round(timeSinceLastUpdate),
-          checkOutTime: now,
-          actualWorkHours: Math.round(actualHours * 100) / 100,
-          declaredHours: Math.round(totalHours * 100) / 100,
-        };
-
-        // Sử dụng actualHours thay vì totalHours
-        totalHours = actualHours;
+        if (timeSinceLastUpdate > 1) {
+          // YÊU CẦU cập nhật work log trước khi checkout
+          const actualHours = (latestWorkLog.updatedAt.getTime() - attendance.checkInTime.getTime()) / (1000 * 60 * 60);
+          
+          return res.status(400).json({
+            requiresWorkLog: true,
+            message: 'Vui lòng cập nhật công việc trước khi check-out',
+            details: {
+              title: 'Cập nhật công việc để ghi nhận thời gian làm việc',
+              description: `Bạn chưa cập nhật công việc trong ${Math.round(timeSinceLastUpdate)} phút gần đây.\n\nNếu không cập nhật, thời gian làm việc sẽ chỉ được tính đến lần cập nhật cuối cùng (${latestWorkLog.updatedAt.toLocaleTimeString('vi-VN')}) thay vì thời gian hiện tại.`,
+              checkInTime: attendance.checkInTime,
+              lastWorkLogUpdate: latestWorkLog.updatedAt,
+              currentTime: now,
+              timeSinceLastUpdate: Math.round(timeSinceLastUpdate),
+              potentialWorkHours: Math.round(totalHours * 100) / 100,
+              reducedWorkHours: Math.round(actualHours * 100) / 100,
+              workLogs: todayWorkLogs,
+              latestWorkLog: latestWorkLog,
+            }
+          });
+        }
+      } else if (!latestWorkLog) {
+        // YÊU CẦU tạo work log đầu tiên
+        return res.status(400).json({
+          requiresWorkLog: true,
+          message: 'Vui lòng cập nhật công việc trước khi check-out',
+          details: {
+            title: 'Bạn chưa ghi nhận công việc nào hôm nay',
+            description: `Để ghi nhận thời gian làm việc, vui lòng cập nhật ít nhất một công việc bạn đã làm trong ngày.\n\nNếu không cập nhật, thời gian làm việc sẽ được tính là 0 giờ.`,
+            checkInTime: attendance.checkInTime,
+            currentTime: now,
+            potentialWorkHours: Math.round(totalHours * 100) / 100,
+            reducedWorkHours: 0,
+            workLogs: [],
+            latestWorkLog: null,
+          }
+        });
       }
-    } else if (!latestWorkLog) {
-      // Không có work log nào trong ngày
-      warning = {
-        message: 'Bạn chưa cập nhật công việc nào trong ngày hôm nay. Vui lòng cập nhật work log để ghi nhận thời gian làm việc chính xác.',
-        checkOutTime: now,
-        actualWorkHours: 0,
-        declaredHours: Math.round(totalHours * 100) / 100,
-      };
-
-      // Không có work log = 0 giờ làm việc thực tế
-      totalHours = 0;
     }
 
+    // Nếu đến đây, có thể checkout được (đã cập nhật work log gần đây hoặc forceCheckout = true)
     const updatedAttendance = await prisma.attendance.update({
       where: { id: attendance.id },
       data: {
@@ -168,16 +177,11 @@ export const checkOut = async (req: AuthRequest, res: Response) => {
       },
     });
 
-    const response: any = {
+    res.json({
       message: 'Check-out thành công',
       attendance: updatedAttendance,
-    };
-
-    if (warning) {
-      response.warning = warning;
-    }
-
-    res.json(response);
+      workLogs: todayWorkLogs,
+    });
   } catch (error) {
     console.error('Check-out error:', error);
     res.status(500).json({ message: 'Lỗi server' });

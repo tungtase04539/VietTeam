@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { attendanceAPI, workLogAPI } from '../services/api';
+import WorkLogRequiredModal from '../components/WorkLogRequiredModal';
 import {
   Attendance,
   WorkLog,
@@ -38,6 +39,10 @@ const EmployeeDashboard: React.FC = () => {
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [actualWorkHours, setActualWorkHours] = useState<number>(0);
   const [checkOutTime, setCheckOutTime] = useState<string | null>(null);
+
+  // Work log required modal state (new)
+  const [showWorkLogRequiredModal, setShowWorkLogRequiredModal] = useState(false);
+  const [workLogRequiredDetails, setWorkLogRequiredDetails] = useState<any>(null);
 
   // Load today's attendance
   useEffect(() => {
@@ -143,10 +148,10 @@ const EmployeeDashboard: React.FC = () => {
     }
   };
 
-  const handleCheckOut = async () => {
+  const handleCheckOut = async (forceCheckout = false) => {
     setAttendanceLoading(true);
     try {
-      const response = await attendanceAPI.checkOut();
+      const response = await attendanceAPI.checkOut(undefined, forceCheckout);
       const data = response.data as CheckOutResponse;
       setTodayAttendance(data.attendance);
       setCurrentHours(0);
@@ -157,35 +162,22 @@ const EmployeeDashboard: React.FC = () => {
       localStorage.setItem('lastCheckInTime', todayAttendance?.checkInTime || '');
       setCheckOutTime(checkOutTimestamp);
 
-      // Kiểm tra warning từ backend
-      if (data.warning) {
-        const warning = data.warning;
-        const warningMessage = `
-⚠️ CẢNH BÁO THỜI GIAN LÀM VIỆC
-
-${warning.message}
-
-📊 Chi tiết:
-• Thời gian check-out: ${new Date(warning.checkOutTime).toLocaleTimeString('vi-VN')}
-${warning.lastWorkLogUpdate ? `• Lần cập nhật work log cuối: ${new Date(warning.lastWorkLogUpdate).toLocaleTimeString('vi-VN')}` : ''}
-${warning.timeSinceLastUpdate ? `• Thời gian không hoạt động: ${warning.timeSinceLastUpdate} phút` : ''}
-
-⏱️ Thời gian làm việc:
-• Thời gian khai báo: ${warning.declaredHours} giờ
-• Thời gian thực tế (được tính): ${warning.actualWorkHours} giờ
-
-💡 Để được tính đầy đủ thời gian, hãy cập nhật work log trong vòng 10 phút trước khi kết thúc làm việc.
-        `.trim();
-
-        showError(warningMessage);
-      } else {
-        showSuccess('Kết thúc làm việc thành công!');
-      }
-
+      showSuccess('Kết thúc làm việc thành công!');
+      
       await loadTodayAttendance(); // Reload to get all sessions
       loadAttendanceStats(); // Reload stats
+      
+      // Đóng modal nếu đang mở
+      setShowWorkLogRequiredModal(false);
+      setWorkLogRequiredDetails(null);
     } catch (error: any) {
-      showError(error.response?.data?.message || 'Lỗi khi kết thúc làm việc');
+      // Xử lý trường hợp yêu cầu work log
+      if (error.response?.status === 400 && error.response?.data?.requiresWorkLog) {
+        setWorkLogRequiredDetails(error.response.data.details);
+        setShowWorkLogRequiredModal(true);
+      } else {
+        showError(error.response?.data?.message || 'Lỗi khi kết thúc làm việc');
+      }
     } finally {
       setAttendanceLoading(false);
     }
@@ -261,6 +253,29 @@ ${warning.timeSinceLastUpdate ? `• Thời gian không hoạt động: ${warnin
     } catch (error: any) {
       showError(error.response?.data?.message || 'Lỗi khi xóa');
     }
+  };
+
+  // Handle work log submission from WorkLogRequiredModal
+  const handleWorkLogRequiredSubmit = async (data: CreateWorkLogData) => {
+    try {
+      await workLogAPI.create(data);
+      showSuccess('Đã thêm công việc!');
+      
+      // Reload work logs
+      await loadWorkLogs();
+      
+      // Tự động retry checkout sau khi thêm work log thành công
+      await handleCheckOut(false);
+    } catch (error: any) {
+      console.error('Add work log error:', error);
+      showError(error.response?.data?.message || 'Lỗi khi thêm công việc');
+      throw error; // Re-throw to let modal know
+    }
+  };
+
+  // Handle force checkout (skip work log requirement)
+  const handleForceCheckout = async () => {
+    await handleCheckOut(true);
   };
 
   const formatTime = (dateString?: string) => {
@@ -828,6 +843,17 @@ ${warning.timeSinceLastUpdate ? `• Thời gian không hoạt động: ${warnin
             </form>
           </div>
         </div>
+      )}
+
+      {/* Work Log Required Modal (New) */}
+      {showWorkLogRequiredModal && workLogRequiredDetails && (
+        <WorkLogRequiredModal
+          isOpen={showWorkLogRequiredModal}
+          onClose={() => setShowWorkLogRequiredModal(false)}
+          onSubmit={handleWorkLogRequiredSubmit}
+          onForceCheckout={handleForceCheckout}
+          details={workLogRequiredDetails}
+        />
       )}
 
       {/* 30-Minute Warning Modal */}

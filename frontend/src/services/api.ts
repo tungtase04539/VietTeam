@@ -68,8 +68,8 @@ export const employeeAPI = {
 export const attendanceAPI = {
   checkIn: (notes?: string) =>
     api.post<{ message: string; attendance: Attendance }>('/attendance/check-in', { notes }),
-  checkOut: (notes?: string) =>
-    api.post<{ message: string; attendance: Attendance }>('/attendance/check-out', { notes }),
+  checkOut: (notes?: string, forceCheckout?: boolean) =>
+    api.post<{ message: string; attendance: Attendance }>('/attendance/check-out', { notes, forceCheckout }),
   getToday: () => api.get<{ attendance: Attendance | null }>('/attendance/today'),
   getMyRecords: (params?: { startDate?: string; endDate?: string; limit?: number }) =>
     api.get<{ attendances: Attendance[]; statistics: AttendanceStatistics }>(
