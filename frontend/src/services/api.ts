@@ -160,4 +160,12 @@ export const teamAPI = {
     api.get<any>('/teams/worklog-stats', { params }),
 };
 
+// Ranking API
+export const rankingAPI = {
+  getAll: (params?: { startDate?: string; endDate?: string; limit?: number }) =>
+    api.get<any>('/rankings/all', { params }),
+  getTeam: (params?: { startDate?: string; endDate?: string }) =>
+    api.get<any>('/rankings/team', { params }),
+};
+
 export default api;

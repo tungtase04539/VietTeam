@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { teamAPI, workLogAPI, authAPI } from '../services/api';
 import { Team, WorkLog, User } from '../types';
 import { useToast } from '../context/ToastContext';
+import TeamRankingsTab from '../components/TeamRankingsTab';
+
+type TabType = 'overview' | 'rankings';
 
 export default function ManagerDashboard() {
   const navigate = useNavigate();
@@ -13,6 +16,7 @@ export default function ManagerDashboard() {
   const [attendanceSummary, setAttendanceSummary] = useState<any>(null);
   const [workLogStats, setWorkLogStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [showAssignWorkModal, setShowAssignWorkModal] = useState(false);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [workItems, setWorkItems] = useState<Array<{
@@ -302,8 +306,37 @@ export default function ManagerDashboard() {
       </nav>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Team Overview */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        {/* Tabs Navigation */}
+        <div className="mb-6 border-b border-gray-200">
+          <nav className="-mb-px flex gap-8">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'overview'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Tổng quan
+            </button>
+            <button
+              onClick={() => setActiveTab('rankings')}
+              className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'rankings'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              🏆 Xếp hạng
+            </button>
+          </nav>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'overview' && (
+          <>
+            {/* Team Overview */}
+            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-bold text-gray-900">Nhóm: {team.name}</h2>
             <button
@@ -491,6 +524,11 @@ export default function ManagerDashboard() {
             </div>
           )}
         </div>
+          </>
+        )}
+
+        {/* Rankings Tab */}
+        {activeTab === 'rankings' && <TeamRankingsTab />}
       </div>
 
       {/* Assign Work Modal */}

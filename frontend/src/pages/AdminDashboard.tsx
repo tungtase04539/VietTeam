@@ -9,11 +9,12 @@ import {
   AttendanceSummary,
 } from '../types';
 import TeamManagementTab from '../components/TeamManagementTab';
+import AdminRankingsTab from '../components/AdminRankingsTab';
 import ConfirmDialog from '../components/ConfirmDialog';
 import AlertDialog from '../components/AlertDialog';
 import PromptDialog from '../components/PromptDialog';
 
-type TabType = 'employees' | 'attendance' | 'worklogs' | 'teams';
+type TabType = 'employees' | 'attendance' | 'worklogs' | 'teams' | 'rankings';
 
 const AdminDashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -666,6 +667,16 @@ const AdminDashboard: React.FC = () => {
                 >
                   Nhóm
                 </button>
+                <button
+                  onClick={() => setActiveTab('rankings')}
+                  className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    activeTab === 'rankings'
+                      ? 'border-indigo-600 text-indigo-600'
+                      : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                  }`}
+                >
+                  🏆 Xếp hạng
+                </button>
               </nav>
             </div>
 
@@ -1173,6 +1184,8 @@ const AdminDashboard: React.FC = () => {
             )}
 
             {activeTab === 'teams' && <TeamManagementTab />}
+
+            {activeTab === 'rankings' && <AdminRankingsTab />}
           </>
         )}
       </main>

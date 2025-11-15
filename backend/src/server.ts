@@ -6,6 +6,7 @@ import employeeRoutes from './routes/employeeRoutes';
 import attendanceRoutes from './routes/attendanceRoutes';
 import workLogRoutes from './routes/workLogRoutes';
 import teamRoutes from './routes/teamRoutes';
+import rankingRoutes from './routes/rankingRoutes';
 
 dotenv.config();
 
@@ -34,6 +35,7 @@ app.use('/api/employees', employeeRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/work-logs', workLogRoutes);
 app.use('/api/teams', teamRoutes);
+app.use('/api/rankings', rankingRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
