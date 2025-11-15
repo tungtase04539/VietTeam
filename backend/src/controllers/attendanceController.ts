@@ -368,6 +368,7 @@ export const getAttendanceSummary = async (req: AuthRequest, res: Response) => {
       include: {
         employee: {
           select: {
+            id: true,
             firstName: true,
             lastName: true,
             position: true,
@@ -388,23 +389,95 @@ export const getAttendanceSummary = async (req: AuthRequest, res: Response) => {
     });
 
     const totalEmployees = await prisma.employee.count();
-    const checkedInToday = todayAttendances.filter((att) => att.checkInTime).length;
-    const checkedOutToday = todayAttendances.filter((att) => att.checkOutTime).length;
+    
+    // Tính unique employees đã check-in (có thể có nhiều sessions)
+    const uniqueCheckedInEmployees = new Set(
+      todayAttendances
+        .filter((att) => att.checkInTime)
+        .map((att) => att.employeeId)
+    );
+    const checkedInToday = uniqueCheckedInEmployees.size;
+
+    // Tính unique employees đang làm việc (check-in nhưng chưa check-out)
+    const currentlyWorkingEmployees = new Set(
+      todayAttendances
+        .filter((att) => att.checkInTime && !att.checkOutTime)
+        .map((att) => att.employeeId)
+    );
+    const currentlyWorking = currentlyWorkingEmployees.size;
+
+    // Tính unique employees đã hoàn thành làm việc (có ít nhất 1 session đã checkout)
+    const uniqueCheckedOutEmployees = new Set(
+      todayAttendances
+        .filter((att) => att.checkOutTime)
+        .map((att) => att.employeeId)
+    );
+    const checkedOutToday = uniqueCheckedOutEmployees.size;
 
     const totalHoursThisMonth = monthAttendances.reduce(
       (sum, att) => sum + (att.totalHours || 0),
       0
     );
 
-    // Group by department
+    // Group by department - tính unique employees
     const departmentStats: Record<string, any> = {};
+    
+    // Đầu tiên, tạo set of all employees by department
+    const allEmployees = await prisma.employee.findMany({
+      select: {
+        id: true,
+        department: true,
+      },
+    });
+
+    allEmployees.forEach((emp) => {
+      if (!departmentStats[emp.department]) {
+        departmentStats[emp.department] = {
+          totalEmployees: 0,
+          checkedIn: 0,
+          currentlyWorking: 0,
+        };
+      }
+      departmentStats[emp.department].totalEmployees++;
+    });
+
+    // Tính employees đã check-in theo department
     todayAttendances.forEach((att) => {
       const dept = att.employee.department;
       if (!departmentStats[dept]) {
-        departmentStats[dept] = { total: 0, present: 0 };
+        departmentStats[dept] = {
+          totalEmployees: 0,
+          checkedIn: 0,
+          currentlyWorking: 0,
+        };
       }
-      departmentStats[dept].total++;
-      if (att.checkInTime) departmentStats[dept].present++;
+    });
+
+    // Tính unique employees đã check-in và đang làm việc per department
+    const deptCheckedIn: Record<string, Set<string>> = {};
+    const deptWorking: Record<string, Set<string>> = {};
+
+    todayAttendances.forEach((att) => {
+      const dept = att.employee.department;
+      
+      if (att.checkInTime) {
+        if (!deptCheckedIn[dept]) deptCheckedIn[dept] = new Set();
+        deptCheckedIn[dept].add(att.employeeId);
+      }
+
+      if (att.checkInTime && !att.checkOutTime) {
+        if (!deptWorking[dept]) deptWorking[dept] = new Set();
+        deptWorking[dept].add(att.employeeId);
+      }
+    });
+
+    Object.keys(departmentStats).forEach((dept) => {
+      departmentStats[dept].checkedIn = deptCheckedIn[dept]?.size || 0;
+      departmentStats[dept].currentlyWorking = deptWorking[dept]?.size || 0;
+      departmentStats[dept].attendanceRate = 
+        departmentStats[dept].totalEmployees > 0
+          ? Math.round((departmentStats[dept].checkedIn / departmentStats[dept].totalEmployees) * 100)
+          : 0;
     });
 
     res.json({
@@ -412,6 +485,7 @@ export const getAttendanceSummary = async (req: AuthRequest, res: Response) => {
         date: today,
         totalEmployees,
         checkedIn: checkedInToday,
+        currentlyWorking: currentlyWorking,
         checkedOut: checkedOutToday,
         late: 0, // Không tính đi muộn nữa
         attendanceRate: totalEmployees > 0 ? Math.round((checkedInToday / totalEmployees) * 100) : 0,

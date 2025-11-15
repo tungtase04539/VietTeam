@@ -113,6 +113,7 @@ export interface AttendanceSummary {
     date: string;
     totalEmployees: number;
     checkedIn: number;
+    currentlyWorking: number;
     checkedOut: number;
     late: number;
     attendanceRate: number;
@@ -123,9 +124,10 @@ export interface AttendanceSummary {
   };
   realTimeAttendance: Attendance[];
   departmentStats: Record<string, {
-    total: number;
-    present: number;
-    late: number;
+    totalEmployees: number;
+    checkedIn: number;
+    currentlyWorking: number;
+    attendanceRate: number;
   }>;
 }
 

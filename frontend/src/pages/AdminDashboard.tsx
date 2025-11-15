@@ -385,8 +385,11 @@ const AdminDashboard: React.FC = () => {
                   <div>
                     <p className="text-sm text-slate-500 mb-1">Đang làm việc</p>
                     <p className="text-3xl font-light text-slate-900">
-                      {attendanceSummary?.today.checkedIn || 0}/
-                      {attendanceSummary?.today.totalEmployees || 0}
+                      {attendanceSummary?.today.currentlyWorking || 0}/
+                      {attendanceSummary?.today.checkedIn || 0}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {attendanceSummary?.today.checkedIn || 0} đã check-in
                     </p>
                   </div>
                   <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
@@ -613,18 +616,20 @@ const AdminDashboard: React.FC = () => {
               <div className="space-y-6">
                 {/* Real-time Attendance */}
                 {attendanceSummary?.realTimeAttendance &&
-                  attendanceSummary.realTimeAttendance.length > 0 && (
+                  attendanceSummary.realTimeAttendance.filter((att) => att.checkInTime && !att.checkOutTime).length > 0 && (
                     <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-slate-200/50 shadow-sm overflow-hidden">
                       <div className="px-6 py-5 border-b border-slate-200/50">
                         <h2 className="text-lg font-medium text-slate-900">
                           Đang làm việc (Real-time)
                         </h2>
                         <p className="text-sm text-slate-500 mt-1">
-                          {attendanceSummary.realTimeAttendance.length} nhân viên đang online
+                          {attendanceSummary.realTimeAttendance.filter((att) => att.checkInTime && !att.checkOutTime).length} nhân viên đang online
                         </p>
                       </div>
                       <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {attendanceSummary.realTimeAttendance.map((att) => (
+                        {attendanceSummary.realTimeAttendance
+                          .filter((att) => att.checkInTime && !att.checkOutTime)
+                          .map((att) => (
                           <div
                             key={att.id}
                             className="border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow"
