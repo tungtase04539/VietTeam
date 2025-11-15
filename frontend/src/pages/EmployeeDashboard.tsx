@@ -438,7 +438,7 @@ const EmployeeDashboard: React.FC = () => {
 
                 {/* End Work Button */}
                 <button
-                  onClick={handleCheckOut}
+                  onClick={() => handleCheckOut(false)}
                   disabled={attendanceLoading}
                   className="px-8 py-4 bg-white text-emerald-600 font-semibold text-lg rounded-xl
                            hover:bg-emerald-50 transition-all duration-200 shadow-xl hover:shadow-2xl

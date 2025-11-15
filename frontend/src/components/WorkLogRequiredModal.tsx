@@ -22,13 +22,11 @@ interface WorkLogRequiredModalProps {
 
 const WorkLogRequiredModal: React.FC<WorkLogRequiredModalProps> = ({
   isOpen,
-  onClose,
   onSubmit,
   onForceCheckout,
   details,
 }) => {
   const [loading, setLoading] = useState(false);
-  const [selectedWorkLog, setSelectedWorkLog] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
