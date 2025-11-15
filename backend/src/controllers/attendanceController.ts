@@ -121,13 +121,13 @@ export const checkOut = async (req: AuthRequest, res: Response) => {
     if (latestWorkLog && attendance.checkInTime) {
       const timeSinceLastUpdate = (now.getTime() - latestWorkLog.updatedAt.getTime()) / (1000 * 60); // phút
 
-      if (timeSinceLastUpdate > 10) {
+      if (timeSinceLastUpdate > 1) {
         // Tính thời gian thực tế dựa trên work log mới nhất
         actualHours = (latestWorkLog.updatedAt.getTime() - attendance.checkInTime.getTime()) / (1000 * 60 * 60);
         lastActivityTime = latestWorkLog.updatedAt;
 
         warning = {
-          message: 'Bạn chưa cập nhật công việc trong 10 phút gần đây. Thời gian làm việc được tính đến lần cập nhật công việc mới nhất.',
+          message: 'Bạn chưa cập nhật công việc trong 1 phút gần đây. Thời gian làm việc được tính đến lần cập nhật công việc mới nhất.',
           lastWorkLogUpdate: latestWorkLog.updatedAt,
           timeSinceLastUpdate: Math.round(timeSinceLastUpdate),
           checkOutTime: now,
