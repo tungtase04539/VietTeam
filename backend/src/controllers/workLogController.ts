@@ -10,7 +10,18 @@ export const createWorkLog = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: 'Không tìm thấy thông tin nhân viên' });
     }
 
-    const { title, description, hoursSpent, status, date } = req.body;
+    const { title, description, hoursSpent, status, date, videoUrl, videoFileId, videoFileName } = req.body;
+
+    console.log('Create work log request body:', {
+      title,
+      description,
+      hoursSpent,
+      status,
+      date,
+      videoUrl: videoUrl ? 'HAS_VIDEO' : 'NO_VIDEO',
+      videoFileId,
+      videoFileName,
+    });
 
     // Normalize date to start of day to avoid timezone issues
     const workLogDate = date ? new Date(date) : new Date();
@@ -26,6 +37,9 @@ export const createWorkLog = async (req: AuthRequest, res: Response) => {
         hoursSpent: hoursSpent ? parseFloat(hoursSpent) : null,
         status: status || 'IN_PROGRESS', // Employee's own work starts as IN_PROGRESS
         date: workLogDate,
+        videoUrl,
+        videoFileId,
+        videoFileName,
       },
     });
 
@@ -167,7 +181,16 @@ export const updateWorkLog = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const employeeId = req.user?.employee?.id;
-    const { title, description, hoursSpent, status } = req.body;
+    const { title, description, hoursSpent, status, videoUrl, videoFileId, videoFileName } = req.body;
+
+    console.log('Update work log request:', {
+      id,
+      title,
+      status,
+      videoUrl: videoUrl ? 'HAS_VIDEO' : 'NO_VIDEO',
+      videoFileId,
+      videoFileName,
+    });
 
     // Check if work log exists and belongs to current user (or user is admin)
     const existingLog = await prisma.workLog.findUnique({
@@ -189,6 +212,9 @@ export const updateWorkLog = async (req: AuthRequest, res: Response) => {
         description,
         hoursSpent: hoursSpent ? parseFloat(hoursSpent) : existingLog.hoursSpent,
         status: status || existingLog.status,
+        videoUrl: videoUrl || existingLog.videoUrl,
+        videoFileId: videoFileId || existingLog.videoFileId,
+        videoFileName: videoFileName || existingLog.videoFileName,
       },
     });
 
