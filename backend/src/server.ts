@@ -8,6 +8,7 @@ import workLogRoutes from './routes/workLogRoutes';
 import teamRoutes from './routes/teamRoutes';
 import rankingRoutes from './routes/rankingRoutes';
 import paymentRoutes from './routes/paymentRoutes';
+import feedbackRoutes from './routes/feedbackRoutes';
 
 dotenv.config();
 
@@ -38,6 +39,7 @@ app.use('/api/work-logs', workLogRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/rankings', rankingRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/feedbacks', feedbackRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

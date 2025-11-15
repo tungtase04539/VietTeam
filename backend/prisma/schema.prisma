@@ -105,6 +105,12 @@ enum WorkLogStatus {
   BLOCKED
 }
 
+enum VideoQuality {
+  POOR
+  GOOD
+  EXCELLENT
+}
+
 model WorkLog {
   id            String        @id @default(uuid())
   employeeId    String
@@ -119,6 +125,11 @@ model WorkLog {
   videoUrl      String?
   videoFileId   String?
   videoFileName String?
+  videoQuality  VideoQuality?
+  feedbackNote  String?
+  feedbackBy    String?
+  feedbackAt    DateTime?
+  feedbackSeen  Boolean       @default(false)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
