@@ -136,6 +136,7 @@ export interface AttendanceSummary {
 }
 
 export type WorkLogStatus = 'TODO' | 'IN_PROGRESS' | 'COMPLETED' | 'BLOCKED';
+export type VideoQuality = 'POOR' | 'GOOD' | 'EXCELLENT';
 
 export interface WorkLog {
   id: string;
@@ -149,6 +150,11 @@ export interface WorkLog {
   videoUrl?: string;
   videoFileId?: string;
   videoFileName?: string;
+  videoQuality?: VideoQuality;
+  feedbackNote?: string;
+  feedbackBy?: string;
+  feedbackAt?: string;
+  feedbackSeen?: boolean;
   createdAt: string;
   updatedAt: string;
   employee?: {

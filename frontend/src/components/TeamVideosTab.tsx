@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { teamAPI } from '../services/api';
-import { WorkLog } from '../types';
+import { teamAPI, feedbackAPI } from '../services/api';
+import { WorkLog, VideoQuality } from '../types';
+import { useToast } from '../context/ToastContext';
+import VideoFeedbackModal from './VideoFeedbackModal';
 
 const TeamVideosTab: React.FC = () => {
+  const { showSuccess, showError } = useToast();
   const [workLogs, setWorkLogs] = useState<WorkLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState({
@@ -12,6 +15,8 @@ const TeamVideosTab: React.FC = () => {
     endDate: new Date().toISOString().split('T')[0],
     status: '',
   });
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [selectedWorkLog, setSelectedWorkLog] = useState<WorkLog | null>(null);
 
   useEffect(() => {
     loadVideos();
@@ -42,6 +47,24 @@ const TeamVideosTab: React.FC = () => {
     }
   };
 
+  const handleGiveFeedback = (workLog: WorkLog) => {
+    setSelectedWorkLog(workLog);
+    setShowFeedbackModal(true);
+  };
+
+  const handleSubmitFeedback = async (data: { videoQuality: VideoQuality; feedbackNote: string }) => {
+    if (!selectedWorkLog) return;
+
+    try {
+      await feedbackAPI.giveVideoFeedback(selectedWorkLog.id, data);
+      showSuccess('Đã gửi feedback thành công!');
+      await loadVideos(); // Reload to show feedback
+    } catch (error: any) {
+      showError(error.response?.data?.message || 'Lỗi khi gửi feedback');
+      throw error;
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('vi-VN');
   };
@@ -64,6 +87,21 @@ const TeamVideosTab: React.FC = () => {
       BLOCKED: 'Bị chặn',
     };
     return texts[status] || status;
+  };
+
+  const getQualityBadge = (quality?: string) => {
+    if (!quality) return null;
+    
+    switch (quality) {
+      case 'POOR':
+        return <span className="px-2.5 py-1 bg-red-100 text-red-700 text-xs font-bold rounded-full">❌ Không đạt</span>;
+      case 'GOOD':
+        return <span className="px-2.5 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full">✅ Đạt</span>;
+      case 'EXCELLENT':
+        return <span className="px-2.5 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-full">⭐ Tốt</span>;
+      default:
+        return null;
+    }
   };
 
   if (loading) {
@@ -204,21 +242,68 @@ const TeamVideosTab: React.FC = () => {
                   )}
                 </div>
 
-                <a
-                  href={log.videoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full px-4 py-2.5 bg-gradient-to-r from-red-600 to-pink-600 text-white font-semibold rounded-lg hover:from-red-700 hover:to-pink-700 transition-all shadow-lg flex items-center justify-center gap-2"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                  </svg>
-                  Xem video
-                </a>
+                {/* Feedback Badge */}
+                {log.videoQuality && (
+                  <div className="mb-3 flex items-center justify-center">
+                    {getQualityBadge(log.videoQuality)}
+                  </div>
+                )}
+
+                {/* Feedback Note */}
+                {log.feedbackNote && (
+                  <div className="mb-3 p-3 bg-white border border-slate-200 rounded-lg">
+                    <p className="text-xs font-semibold text-slate-700 mb-1">💬 Feedback:</p>
+                    <p className="text-xs text-slate-600">{log.feedbackNote}</p>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="grid grid-cols-2 gap-2">
+                  <a
+                    href={log.videoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors text-sm flex items-center justify-center gap-1"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    </svg>
+                    Xem
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => handleGiveFeedback(log)}
+                    className="px-3 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors text-sm flex items-center justify-center gap-1"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                    </svg>
+                    {log.videoQuality ? 'Sửa' : 'Đánh giá'}
+                  </button>
+                </div>
               </div>
             </div>
           ))}
         </div>
+      )}
+
+      {/* Feedback Modal */}
+      {showFeedbackModal && selectedWorkLog && (
+        <VideoFeedbackModal
+          isOpen={showFeedbackModal}
+          workLog={{
+            id: selectedWorkLog.id,
+            title: selectedWorkLog.title,
+            videoUrl: selectedWorkLog.videoUrl!,
+            videoFileName: selectedWorkLog.videoFileName,
+            employeeName: `${selectedWorkLog.employee?.firstName} ${selectedWorkLog.employee?.lastName}`,
+          }}
+          onSubmit={handleSubmitFeedback}
+          onClose={() => {
+            setShowFeedbackModal(false);
+            setSelectedWorkLog(null);
+          }}
+        />
       )}
 
       {/* Summary */}

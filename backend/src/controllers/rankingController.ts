@@ -62,6 +62,20 @@ export const getAllRankings = async (req: AuthRequest, res: Response) => {
       const completedWorkLogs = empWorkLogs.filter((log) => log.status === 'COMPLETED').length;
       const completionRate = totalWorkLogs > 0 ? (completedWorkLogs / totalWorkLogs) * 100 : 0;
 
+      // Video quality stats
+      const videosWithQuality = empWorkLogs.filter((log) => log.videoQuality);
+      const qualityScores = {
+        POOR: 1,
+        GOOD: 2,
+        EXCELLENT: 3,
+      };
+      const totalQualityScore = videosWithQuality.reduce((sum, log) => {
+        return sum + (qualityScores[log.videoQuality as keyof typeof qualityScores] || 0);
+      }, 0);
+      const avgVideoQuality = videosWithQuality.length > 0 
+        ? totalQualityScore / videosWithQuality.length 
+        : 0;
+
       return {
         id: emp.id,
         firstName: emp.firstName,
@@ -76,6 +90,8 @@ export const getAllRankings = async (req: AuthRequest, res: Response) => {
           totalWorkLogs,
           completedWorkLogs,
           completionRate: Math.round(completionRate * 100) / 100,
+          videosWithFeedback: videosWithQuality.length,
+          avgVideoQuality: Math.round(avgVideoQuality * 100) / 100,
         },
       };
     });
@@ -114,6 +130,17 @@ export const getAllRankings = async (req: AuthRequest, res: Response) => {
       })
       .slice(0, parseInt(limit as string));
 
+    // Category 5: Best Video Quality (min 3 videos with feedback)
+    const topByVideoQuality = [...employeeStats]
+      .filter((emp) => emp.stats.videosWithFeedback >= 3)
+      .sort((a, b) => {
+        if (b.stats.avgVideoQuality === a.stats.avgVideoQuality) {
+          return b.stats.videosWithFeedback - a.stats.videosWithFeedback;
+        }
+        return b.stats.avgVideoQuality - a.stats.avgVideoQuality;
+      })
+      .slice(0, parseInt(limit as string));
+
     res.json({
       period: {
         startDate: start,
@@ -124,6 +151,7 @@ export const getAllRankings = async (req: AuthRequest, res: Response) => {
         topByCompletedTasks,
         topByCompletionRate,
         topByAttendance,
+        topByVideoQuality,
       },
       totalEmployees: employees.length,
     });

@@ -187,4 +187,14 @@ export const paymentAPI = {
     api.get<any>('/payments/my-earnings', { params }),
 };
 
+// Feedback API
+export const feedbackAPI = {
+  giveVideoFeedback: (workLogId: string, data: { videoQuality: string; feedbackNote?: string }) =>
+    api.post<{ message: string; workLog: any }>(`/feedbacks/${workLogId}/video-feedback`, data),
+  getUnseenFeedbacks: () =>
+    api.get<{ feedbacks: any[]; count: number }>('/feedbacks/unseen'),
+  markAsSeen: (workLogIds: string[]) =>
+    api.post<{ message: string; count: number }>('/feedbacks/mark-seen', { workLogIds }),
+};
+
 export default api;

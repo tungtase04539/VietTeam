@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { attendanceAPI, workLogAPI } from '../services/api';
+import { attendanceAPI, workLogAPI, feedbackAPI } from '../services/api';
 import WorkLogRequiredModal from '../components/WorkLogRequiredModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import VideoUpload from '../components/VideoUpload';
+import FeedbackNotificationModal from '../components/FeedbackNotificationModal';
 import {
   Attendance,
   WorkLog,
@@ -64,12 +65,44 @@ const EmployeeDashboard: React.FC = () => {
   const [showEditWorkLogModal, setShowEditWorkLogModal] = useState(false);
   const [editingWorkLog, setEditingWorkLog] = useState<WorkLog | null>(null);
 
+  // Feedback notification state
+  const [showFeedbackNotification, setShowFeedbackNotification] = useState(false);
+  const [unseenFeedbacks, setUnseenFeedbacks] = useState<WorkLog[]>([]);
+  const [hasCheckedFeedback, setHasCheckedFeedback] = useState(false);
+
   // Load today's attendance
   useEffect(() => {
     loadTodayAttendance();
     loadWorkLogs();
     loadAttendanceStats();
   }, []);
+
+  // Check for unseen feedbacks once per day
+  useEffect(() => {
+    const checkFeedbacks = async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const lastCheck = localStorage.getItem('lastFeedbackCheck');
+
+      // Only check once per day
+      if (lastCheck === today || hasCheckedFeedback) return;
+
+      try {
+        const response = await feedbackAPI.getUnseenFeedbacks();
+        if (response.data.feedbacks.length > 0) {
+          setUnseenFeedbacks(response.data.feedbacks);
+          setShowFeedbackNotification(true);
+          setHasCheckedFeedback(true);
+          localStorage.setItem('lastFeedbackCheck', today);
+        }
+      } catch (error) {
+        console.error('Check feedbacks error:', error);
+      }
+    };
+
+    // Check after a short delay to let page load first
+    const timer = setTimeout(checkFeedbacks, 2000);
+    return () => clearTimeout(timer);
+  }, [hasCheckedFeedback]);
 
   // Live hours counter
   useEffect(() => {
@@ -369,6 +402,15 @@ const EmployeeDashboard: React.FC = () => {
     setShowWorkLogRequiredModal(false);
     setWorkLogRequiredDetails(null);
     setAttendanceLoading(false);
+  };
+
+  const handleMarkFeedbacksSeen = async () => {
+    try {
+      const workLogIds = unseenFeedbacks.map((f) => f.id);
+      await feedbackAPI.markAsSeen(workLogIds);
+    } catch (error) {
+      console.error('Mark feedbacks as seen error:', error);
+    }
   };
 
   const formatTime = (dateString?: string) => {
@@ -1308,6 +1350,14 @@ const EmployeeDashboard: React.FC = () => {
         confirmButtonClass="bg-red-600 hover:bg-red-700"
         onConfirm={confirmDeleteWorkLog}
         onCancel={() => setDeleteConfirmDialog({ isOpen: false, workLogId: null })}
+      />
+
+      {/* Feedback Notification Modal */}
+      <FeedbackNotificationModal
+        isOpen={showFeedbackNotification}
+        feedbacks={unseenFeedbacks}
+        onClose={() => setShowFeedbackNotification(false)}
+        onMarkSeen={handleMarkFeedbacksSeen}
       />
     </div>
   );

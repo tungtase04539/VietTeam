@@ -89,6 +89,20 @@ const AdminRankingsTab: React.FC = () => {
       getValue: (item: any) => `${item.stats.attendanceDays} ngày`,
       getSubtext: (item: any) => `${formatHours(item.stats.totalHours)} làm việc`,
     },
+    {
+      title: '🎥 Top Chất lượng video tốt nhất',
+      data: rankings.categories.topByVideoQuality || [],
+      color: 'from-pink-600 to-rose-600',
+      bgColor: 'bg-pink-50',
+      borderColor: 'border-pink-200',
+      getValue: (item: any) => {
+        const score = item.stats.avgVideoQuality;
+        if (score >= 2.5) return '⭐⭐⭐';
+        if (score >= 2) return '⭐⭐';
+        return '⭐';
+      },
+      getSubtext: (item: any) => `${item.stats.videosWithFeedback} videos • Điểm: ${item.stats.avgVideoQuality}/3`,
+    },
   ];
 
   return (
@@ -122,7 +136,7 @@ const AdminRankingsTab: React.FC = () => {
       </div>
 
       {/* Leaderboards Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         {categories.map((category, catIndex) => (
           <div
             key={catIndex}
