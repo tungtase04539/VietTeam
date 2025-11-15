@@ -132,7 +132,19 @@ export const teamAPI = {
   removeMember: (employeeId: string) =>
     api.delete<{ message: string; employee: Employee }>(`/teams/members/${employeeId}`),
   assignWork: (data: AssignWorkLogData) =>
-    api.post<{ message: string; workLog: WorkLog }>('/teams/assign-work', data),
+    api.post<{ 
+      message: string; 
+      workLogs: WorkLog[];
+      summary: {
+        totalWorkLogs: number;
+        employeeCount: number;
+        dayCount: number;
+        dateRange: {
+          start: string;
+          end: string;
+        };
+      };
+    }>('/teams/assign-work', data),
   getAttendanceSummary: () => api.get<any>('/teams/attendance-summary'),
   getWorkLogStats: (params?: { startDate?: string; endDate?: string }) =>
     api.get<any>('/teams/worklog-stats', { params }),

@@ -3,7 +3,6 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { attendanceAPI, workLogAPI } from '../services/api';
 import WorkLogRequiredModal from '../components/WorkLogRequiredModal';
-import ConfirmDialog from '../components/ConfirmDialog';
 import {
   Attendance,
   WorkLog,
@@ -44,10 +43,6 @@ const EmployeeDashboard: React.FC = () => {
   // Work log required modal state (new)
   const [showWorkLogRequiredModal, setShowWorkLogRequiredModal] = useState(false);
   const [workLogRequiredDetails, setWorkLogRequiredDetails] = useState<any>(null);
-
-  // Confirm dialog state
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [workLogToDelete, setWorkLogToDelete] = useState<string | null>(null);
 
   // Load today's attendance
   useEffect(() => {
@@ -254,22 +249,14 @@ const EmployeeDashboard: React.FC = () => {
     }
   };
 
-  const handleDeleteWorkLog = (id: string) => {
-    setWorkLogToDelete(id);
-    setShowDeleteConfirm(true);
-  };
-
-  const confirmDeleteWorkLog = async () => {
-    if (!workLogToDelete) return;
+  const handleDeleteWorkLog = async (id: string) => {
+    if (!confirm('Xóa công việc này?')) return;
     try {
-      await workLogAPI.delete(workLogToDelete);
+      await workLogAPI.delete(id);
       loadWorkLogs();
       showSuccess('Xóa công việc thành công!');
     } catch (error: any) {
       showError(error.response?.data?.message || 'Lỗi khi xóa');
-    } finally {
-      setShowDeleteConfirm(false);
-      setWorkLogToDelete(null);
     }
   };
 
