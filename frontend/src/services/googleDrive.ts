@@ -82,8 +82,7 @@ export const getAccessToken = (): Promise<string> => {
 // Find or create folder
 const findOrCreateFolder = async (
   parentId: string,
-  folderName: string,
-  accessToken: string
+  folderName: string
 ): Promise<string> => {
   const gapi = (window as any).gapi;
 
@@ -129,9 +128,9 @@ export const uploadVideoToDrive = async (
     (window as any).gapi.client.setToken({ access_token: accessToken });
 
     // Create folder structure: VietTeam > Employee > Date > Task
-    const employeeFolderId = await findOrCreateFolder(FOLDER_ID, employeeName, accessToken);
-    const dateFolderId = await findOrCreateFolder(employeeFolderId, date, accessToken);
-    const taskFolderId = await findOrCreateFolder(dateFolderId, taskName, accessToken);
+    const employeeFolderId = await findOrCreateFolder(FOLDER_ID, employeeName);
+    const dateFolderId = await findOrCreateFolder(employeeFolderId, date);
+    const taskFolderId = await findOrCreateFolder(dateFolderId, taskName);
 
     // Upload file
     const metadata = {
