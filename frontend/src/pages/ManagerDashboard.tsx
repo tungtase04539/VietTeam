@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { teamAPI, workLogAPI, authAPI } from '../services/api';
+import { teamAPI, authAPI } from '../services/api';
 import { Team, WorkLog, User } from '../types';
 import { useToast } from '../context/ToastContext';
 import TeamRankingsTab from '../components/TeamRankingsTab';
