@@ -14,6 +14,7 @@ export default function ManagerDashboard() {
   const [workLogStats, setWorkLogStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showAssignWorkModal, setShowAssignWorkModal] = useState(false);
+  const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
 
   useEffect(() => {
     loadData();
@@ -101,16 +102,28 @@ export default function ManagerDashboard() {
     const formData = new FormData(e.currentTarget);
     const form = e.currentTarget;
 
+    if (selectedEmployees.length === 0) {
+      showError('Vui lòng chọn ít nhất một nhân viên');
+      return;
+    }
+
     try {
-      await teamAPI.assignWork({
-        employeeId: formData.get('employeeId') as string,
+      const response = await teamAPI.assignWork({
+        employeeIds: selectedEmployees,
         title: formData.get('title') as string,
         description: formData.get('description') as string,
+        startDate: formData.get('startDate') as string,
+        endDate: formData.get('endDate') as string,
       });
 
       form.reset();
       setShowAssignWorkModal(false);
-      showSuccess('Giao việc thành công!');
+      setSelectedEmployees([]);
+      
+      const summary = response.data.summary;
+      showSuccess(
+        `Đã giao ${summary.totalWorkLogs} công việc cho ${summary.employeeCount} nhân viên trong ${summary.dayCount} ngày`
+      );
       
       // Reload all data
       await Promise.all([
@@ -120,6 +133,22 @@ export default function ManagerDashboard() {
     } catch (error: any) {
       console.error('Assign work error:', error);
       showError(error.response?.data?.message || 'Lỗi khi giao việc');
+    }
+  };
+
+  const toggleEmployeeSelection = (employeeId: string) => {
+    setSelectedEmployees((prev) =>
+      prev.includes(employeeId)
+        ? prev.filter((id) => id !== employeeId)
+        : [...prev, employeeId]
+    );
+  };
+
+  const selectAllEmployees = () => {
+    if (selectedEmployees.length === team?.members.length) {
+      setSelectedEmployees([]);
+    } else {
+      setSelectedEmployees(team?.members.map((m) => m.id) || []);
     }
   };
 
@@ -428,66 +457,142 @@ export default function ManagerDashboard() {
 
       {/* Assign Work Modal */}
       {showAssignWorkModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-xl font-bold mb-4">Giao việc mới</h3>
-            <form onSubmit={handleAssignWork}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nhân viên
-                </label>
-                <select
-                  name="employeeId"
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Chọn nhân viên</option>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-slate-200 bg-gradient-to-r from-blue-600 to-indigo-600">
+              <h3 className="text-2xl font-bold text-white">Giao việc mới</h3>
+              <p className="text-blue-100 text-sm mt-1">Giao công việc cho nhiều nhân viên và thiết lập lịch lặp lại</p>
+            </div>
+
+            <form onSubmit={handleAssignWork} className="p-6 space-y-6">
+              {/* Employee Selection */}
+              <div>
+                <div className="flex justify-between items-center mb-3">
+                  <label className="block text-sm font-semibold text-slate-700">
+                    Chọn nhân viên <span className="text-red-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={selectAllEmployees}
+                    className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    {selectedEmployees.length === team.members.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                  </button>
+                </div>
+                <div className="border-2 border-slate-200 rounded-lg p-4 max-h-48 overflow-y-auto space-y-2">
                   {team.members.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.firstName} {member.lastName} - {member.position}
-                    </option>
+                    <label
+                      key={member.id}
+                      className="flex items-center p-3 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedEmployees.includes(member.id)}
+                        onChange={() => toggleEmployeeSelection(member.id)}
+                        className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                      />
+                      <div className="ml-3">
+                        <div className="font-medium text-slate-900">
+                          {member.firstName} {member.lastName}
+                        </div>
+                        <div className="text-sm text-slate-500">{member.position}</div>
+                      </div>
+                    </label>
                   ))}
-                </select>
+                </div>
+                <p className="text-sm text-slate-600 mt-2">
+                  Đã chọn: <span className="font-semibold text-blue-600">{selectedEmployees.length}</span> nhân viên
+                </p>
               </div>
 
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tiêu đề công việc
+              {/* Task Details */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Tiêu đề công việc <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   name="title"
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Ví dụ: Hoàn thành báo cáo tháng 11"
+                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  placeholder="VD: Hoàn thành báo cáo tháng 11"
                 />
               </div>
 
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Mô tả
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Mô tả chi tiết
                 </label>
                 <textarea
                   name="description"
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Mô tả chi tiết công việc..."
+                  rows={4}
+                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  placeholder="Mô tả chi tiết công việc, yêu cầu, deadline..."
                 />
               </div>
 
-              <div className="flex justify-end gap-2">
+              {/* Date Range */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Thời gian thực hiện
+                </label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs text-slate-600 mb-1">Từ ngày <span className="text-red-500">*</span></label>
+                    <input
+                      type="date"
+                      name="startDate"
+                      required
+                      defaultValue={new Date().toISOString().split('T')[0]}
+                      className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-600 mb-1">Đến ngày</label>
+                    <input
+                      type="date"
+                      name="endDate"
+                      defaultValue={new Date().toISOString().split('T')[0]}
+                      className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-slate-500 mt-2">
+                  💡 Công việc sẽ được tạo cho mỗi ngày trong khoảng thời gian này
+                </p>
+              </div>
+
+              {/* Summary Box */}
+              {selectedEmployees.length > 0 && (
+                <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-900 mb-2">📊 Tóm tắt:</h4>
+                  <ul className="text-sm text-blue-800 space-y-1">
+                    <li>• Số nhân viên: <span className="font-bold">{selectedEmployees.length}</span></li>
+                    <li>• Công việc sẽ được giao cho tất cả các nhân viên đã chọn</li>
+                    <li>• Nếu chọn nhiều ngày, công việc sẽ lặp lại mỗi ngày</li>
+                  </ul>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4 border-t-2 border-slate-200">
                 <button
                   type="button"
-                  onClick={() => setShowAssignWorkModal(false)}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                  onClick={() => {
+                    setShowAssignWorkModal(false);
+                    setSelectedEmployees([]);
+                  }}
+                  className="flex-1 px-6 py-3 border-2 border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-100 transition-colors"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  disabled={selectedEmployees.length === 0}
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Giao việc
+                  ✓ Giao việc ({selectedEmployees.length} người)
                 </button>
               </div>
             </form>

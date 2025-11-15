@@ -223,10 +223,11 @@ export interface UpdateTeamData {
 }
 
 export interface AssignWorkLogData {
-  employeeId: string;
+  employeeIds: string | string[]; // Support single or multiple employees
   title: string;
   description?: string;
-  date?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 export interface MyTeamResponse {

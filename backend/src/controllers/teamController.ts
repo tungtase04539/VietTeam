@@ -324,7 +324,7 @@ export const assignWorkLog = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: 'Không tìm thấy thông tin nhân viên' });
     }
 
-    const { employeeId, title, description, date } = req.body;
+    const { employeeIds, title, description, startDate, endDate } = req.body;
 
     // Verify manager has a team
     const manager = await prisma.employee.findUnique({
@@ -336,50 +336,67 @@ export const assignWorkLog = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ message: 'Bạn không quản lý nhóm nào' });
     }
 
-    // Verify employee is in manager's team
-    const isTeamMember = manager.managedTeam.members.some(
-      (member) => member.id === employeeId
-    );
+    const teamMemberIds = manager.managedTeam.members.map((m) => m.id);
 
-    if (!isTeamMember) {
+    // Validate all employees are in manager's team
+    const employeeIdsArray = Array.isArray(employeeIds) ? employeeIds : [employeeIds];
+    const invalidEmployees = employeeIdsArray.filter((id) => !teamMemberIds.includes(id));
+
+    if (invalidEmployees.length > 0) {
       return res.status(403).json({
-        message: 'Nhân viên này không thuộc nhóm của bạn',
+        message: 'Một số nhân viên không thuộc nhóm của bạn',
       });
     }
 
-    // Normalize date to start of day
-    const workLogDate = date ? new Date(date) : new Date();
-    workLogDate.setHours(0, 0, 0, 0);
+    // Parse dates
+    const start = startDate ? new Date(startDate) : new Date();
+    start.setHours(0, 0, 0, 0);
 
-    const workLog = await prisma.workLog.create({
-      data: {
-        employeeId,
-        assignedById: managerId,
-        title,
-        description,
-        date: workLogDate,
-        status: 'TODO', // Assigned tasks default to TODO
-      },
-      include: {
-        employee: {
-          select: {
-            firstName: true,
-            lastName: true,
-            position: true,
+    const end = endDate ? new Date(endDate) : start;
+    end.setHours(0, 0, 0, 0);
+
+    // Generate all dates in range
+    const dates: Date[] = [];
+    const currentDate = new Date(start);
+    while (currentDate <= end) {
+      dates.push(new Date(currentDate));
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Create work logs for all employees and all dates
+    const workLogs = [];
+    for (const employeeId of employeeIdsArray) {
+      for (const date of dates) {
+        const workLog = await prisma.workLog.create({
+          data: {
+            employeeId,
+            assignedById: managerId,
+            title,
+            description,
+            date: new Date(date),
+            status: 'TODO',
           },
-        },
-        assignedBy: {
-          select: {
-            firstName: true,
-            lastName: true,
-          },
-        },
-      },
-    });
+        });
+        workLogs.push(workLog);
+      }
+    }
+
+    const totalCreated = workLogs.length;
+    const employeeCount = employeeIdsArray.length;
+    const dayCount = dates.length;
 
     res.status(201).json({
-      message: 'Giao việc thành công',
-      workLog,
+      message: `Đã giao ${totalCreated} công việc cho ${employeeCount} nhân viên trong ${dayCount} ngày`,
+      workLogs,
+      summary: {
+        totalWorkLogs: totalCreated,
+        employeeCount,
+        dayCount,
+        dateRange: {
+          start: start.toISOString(),
+          end: end.toISOString(),
+        },
+      },
     });
   } catch (error) {
     console.error('Assign work log error:', error);
