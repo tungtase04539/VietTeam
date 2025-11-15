@@ -52,7 +52,7 @@ const WorkLogRequiredModal: React.FC<WorkLogRequiredModalProps> = ({
       title: formData.get('title') as string,
       description: formData.get('description') as string,
       hoursSpent: parseFloat(formData.get('hoursSpent') as string) || undefined,
-      status: (formData.get('status') as WorkLogStatus) || 'COMPLETED',
+      status: (formData.get('status') as WorkLogStatus) || 'IN_PROGRESS',
     };
 
     try {
@@ -242,10 +242,10 @@ const WorkLogRequiredModal: React.FC<WorkLogRequiredModalProps> = ({
                 name="status"
                 required
                 className="w-full px-4 py-3 border-2 border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-base font-semibold"
-                defaultValue="COMPLETED"
+                defaultValue="IN_PROGRESS"
               >
-                <option value="COMPLETED">✓ Hoàn thành</option>
                 <option value="IN_PROGRESS">⚡ Đang làm</option>
+                <option value="COMPLETED">✓ Hoàn thành</option>
               </select>
               <p className="text-xs text-slate-600 mt-1">
                 💡 Chỉ chọn công việc đã thực hiện
