@@ -10,6 +10,8 @@ export default function ManagerDashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [team, setTeam] = useState<Team | null>(null);
   const [teamWorkLogs, setTeamWorkLogs] = useState<WorkLog[]>([]);
+  const [attendanceSummary, setAttendanceSummary] = useState<any>(null);
+  const [workLogStats, setWorkLogStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showAssignWorkModal, setShowAssignWorkModal] = useState(false);
 
@@ -29,8 +31,12 @@ export default function ManagerDashboard() {
       setTeam(teamRes.data.managedTeam || null);
 
       if (teamRes.data.managedTeam) {
-        // Load team work logs
-        await loadTeamWorkLogs();
+        // Load all team data
+        await Promise.all([
+          loadTeamWorkLogs(),
+          loadAttendanceSummary(),
+          loadWorkLogStats(),
+        ]);
       }
     } catch (error: any) {
       console.error('Load data error:', error);
@@ -39,6 +45,31 @@ export default function ManagerDashboard() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAttendanceSummary = async () => {
+    try {
+      const res = await teamAPI.getAttendanceSummary();
+      setAttendanceSummary(res.data);
+    } catch (error) {
+      console.error('Load attendance summary error:', error);
+    }
+  };
+
+  const loadWorkLogStats = async () => {
+    try {
+      const today = new Date();
+      const startDate = new Date(today);
+      startDate.setDate(today.getDate() - 30); // Last 30 days
+
+      const res = await teamAPI.getWorkLogStats({
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: today.toISOString().split('T')[0],
+      });
+      setWorkLogStats(res.data);
+    } catch (error) {
+      console.error('Load work log stats error:', error);
     }
   };
 
@@ -80,7 +111,12 @@ export default function ManagerDashboard() {
       form.reset();
       setShowAssignWorkModal(false);
       showSuccess('Giao việc thành công!');
-      await loadTeamWorkLogs();
+      
+      // Reload all data
+      await Promise.all([
+        loadTeamWorkLogs(),
+        loadWorkLogStats(),
+      ]);
     } catch (error: any) {
       console.error('Assign work error:', error);
       showError(error.response?.data?.message || 'Lỗi khi giao việc');
@@ -215,31 +251,67 @@ export default function ManagerDashboard() {
             <p className="text-gray-600 mb-4">{team.description}</p>
           )}
 
-          {/* Statistics */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-blue-600">
-                {teamStats.totalMembers}
+          {/* Attendance Statistics */}
+          {attendanceSummary && (
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-3">Chấm công hôm nay</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-indigo-50 p-4 rounded-lg">
+                  <div className="text-2xl font-bold text-indigo-600">
+                    {attendanceSummary.today.checkedIn}/{attendanceSummary.today.totalTeamMembers}
+                  </div>
+                  <div className="text-sm text-gray-600">Đã check-in</div>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">
+                    {attendanceSummary.today.currentlyWorking}
+                  </div>
+                  <div className="text-sm text-gray-600">Đang làm việc</div>
+                </div>
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {attendanceSummary.today.attendanceRate}%
+                  </div>
+                  <div className="text-sm text-gray-600">Tỷ lệ chấm công</div>
+                </div>
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <div className="text-2xl font-bold text-purple-600">
+                    {attendanceSummary.thisMonth.totalHours.toFixed(1)}h
+                  </div>
+                  <div className="text-sm text-gray-600">Giờ tháng này</div>
+                </div>
               </div>
-              <div className="text-sm text-gray-600">Thành viên</div>
             </div>
-            <div className="bg-green-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-green-600">
-                {teamStats.completedTasks}
+          )}
+
+          {/* Work Log Statistics */}
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold mb-3">Công việc (30 ngày qua)</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <div className="text-2xl font-bold text-blue-600">
+                  {workLogStats?.overall.totalLogs || teamStats.totalTasks}
+                </div>
+                <div className="text-sm text-gray-600">Tổng công việc</div>
               </div>
-              <div className="text-sm text-gray-600">Đã hoàn thành</div>
-            </div>
-            <div className="bg-yellow-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-yellow-600">
-                {teamStats.inProgressTasks}
+              <div className="bg-green-50 p-4 rounded-lg">
+                <div className="text-2xl font-bold text-green-600">
+                  {workLogStats?.overall.completedTasks || teamStats.completedTasks}
+                </div>
+                <div className="text-sm text-gray-600">Đã hoàn thành</div>
               </div>
-              <div className="text-sm text-gray-600">Đang làm</div>
-            </div>
-            <div className="bg-purple-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-purple-600">
-                {teamStats.totalHours.toFixed(1)}h
+              <div className="bg-yellow-50 p-4 rounded-lg">
+                <div className="text-2xl font-bold text-yellow-600">
+                  {workLogStats?.overall.inProgressTasks || teamStats.inProgressTasks}
+                </div>
+                <div className="text-sm text-gray-600">Đang làm</div>
               </div>
-              <div className="text-sm text-gray-600">Tổng giờ</div>
+              <div className="bg-purple-50 p-4 rounded-lg">
+                <div className="text-2xl font-bold text-purple-600">
+                  {workLogStats?.overall.completionRate || 0}%
+                </div>
+                <div className="text-sm text-gray-600">Tỷ lệ hoàn thành</div>
+              </div>
             </div>
           </div>
 
